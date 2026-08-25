@@ -261,6 +261,14 @@
     padding: 8px 0; cursor: pointer;
   }
   .emoji-opt.selected { border-color: #6366f1; background: #312e81; }
+  .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .theme-opt {
+    background: #1e293b; border: 2px solid #334155; border-radius: 12px;
+    padding: 12px 8px; cursor: pointer; display: flex; flex-direction: column;
+    align-items: center; gap: 4px; font-size: 12px; font-weight: 800; color: #e2e8f0; text-align: center;
+  }
+  .theme-opt .theme-emoji { font-size: 26px; }
+  .theme-opt.selected { border-color: #6366f1; background: #312e81; }
 </style>
 </head>
 <body>
@@ -357,6 +365,7 @@
     <div class="task-list" id="task-list"></div>
 
     <button class="ghost-btn parent-only" id="edit-tasks-btn">✏️ Edit Missions</button>
+    <button class="ghost-btn parent-only" id="change-theme-btn">🎭 Change Hype Style</button>
     <button class="ghost-btn parent-only" id="link-code-btn">🔗 Get Kid's Link Code</button>
     <button class="ghost-btn parent-only" id="reset-btn">🔄 Reset Checklist &amp; Feats for New Day</button>
   </div>
@@ -438,11 +447,12 @@
     ];
   }
 
-  function defaultChild(name) {
+  function defaultChild(name, theme) {
     return {
       id: makeId(),
       name: name || 'My Kid',
       emoji: '🧑',
+      theme: theme || 'aussie',
       tasks: defaultTasks(),
       feats: defaultFeats(),
       linkCode: null
@@ -820,13 +830,14 @@
       const doneCount = Object.values(childLogsData.logs[key].tasks).filter(Boolean).length;
       const allDone = doneCount === child.tasks.length;
       if (isPremium()) {
+        const pack = hypePackFor(child);
         if (allDone) {
           burstFullScreen(110);
-          showHype(randomFrom(BIG_HYPE_MESSAGES), true);
+          showHype(randomFrom(pack.big), true);
           playFanfare();
         } else {
           burstFromEvent(evt, 28);
-          showHype(randomFrom(HYPE_MESSAGES), false);
+          showHype(randomFrom(pack.small), false);
           playTaskChime();
         }
       }
@@ -985,6 +996,7 @@
   function openAddChildModal() {
     const root = document.getElementById('modal-root');
     let selectedEmoji = EMOJI_CHOICES[0];
+    let selectedTheme = THEMES[0].id;
     root.innerHTML = `
       <div class="modal-overlay" id="modal-overlay">
         <div class="modal-sheet">
@@ -994,6 +1006,9 @@
           <input class="field-input" id="new-child-name" placeholder="Kid's name">
           <label class="field-label">Pick an icon</label>
           <div class="emoji-grid" id="emoji-grid"></div>
+          <label class="field-label" style="margin-top:4px;">Pick their hype style</label>
+          <p style="margin:-6px 0 4px;">This flavors the celebration messages when they finish missions.</p>
+          <div class="theme-grid" id="theme-grid"></div>
           <button class="primary-btn" id="save-new-child-btn">Add Kid</button>
           <button class="link-btn" id="cancel-new-child-btn">Cancel</button>
         </div>
@@ -1011,11 +1026,23 @@
       });
       grid.appendChild(opt);
     });
+    const themeGrid = document.getElementById('theme-grid');
+    THEMES.forEach((t, i) => {
+      const opt = document.createElement('div');
+      opt.className = 'theme-opt' + (i === 0 ? ' selected' : '');
+      opt.innerHTML = `<span class="theme-emoji">${t.emoji}</span><span>${escapeHtml(t.label)}</span>`;
+      opt.addEventListener('click', () => {
+        selectedTheme = t.id;
+        themeGrid.querySelectorAll('.theme-opt').forEach(el => el.classList.remove('selected'));
+        opt.classList.add('selected');
+      });
+      themeGrid.appendChild(opt);
+    });
     document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
     document.getElementById('cancel-new-child-btn').addEventListener('click', closeModal);
     document.getElementById('save-new-child-btn').addEventListener('click', async () => {
       const name = document.getElementById('new-child-name').value.trim() || 'New Kid';
-      const child = defaultChild(name);
+      const child = defaultChild(name, selectedTheme);
       child.emoji = selectedEmoji;
       familyData.children[child.id] = child;
       familyData.activeChildId = child.id;
@@ -1023,6 +1050,40 @@
       setActiveChild(child.id, { persist: false });
       closeModal();
     });
+  }
+
+  // ---------------------------------------------------------------------
+  // Change an existing kid's hype theme (parent-only).
+  // ---------------------------------------------------------------------
+  function openThemeModal() {
+    const child = activeChild();
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet">
+          <h2>${escapeHtml(child.name)}'s Hype Style</h2>
+          <p>Pick what ${escapeHtml(child.name)} is into — celebration messages will match.</p>
+          <div class="theme-grid" id="theme-grid"></div>
+          <button class="link-btn" id="close-theme-btn">Close</button>
+        </div>
+      </div>
+    `;
+    const themeGrid = document.getElementById('theme-grid');
+    const currentTheme = child.theme || 'aussie';
+    THEMES.forEach((t) => {
+      const opt = document.createElement('div');
+      opt.className = 'theme-opt' + (t.id === currentTheme ? ' selected' : '');
+      opt.innerHTML = `<span class="theme-emoji">${t.emoji}</span><span>${escapeHtml(t.label)}</span>`;
+      opt.addEventListener('click', async () => {
+        child.theme = t.id;
+        themeGrid.querySelectorAll('.theme-opt').forEach(el => el.classList.remove('selected'));
+        opt.classList.add('selected');
+        await saveFamily();
+      });
+      themeGrid.appendChild(opt);
+    });
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-theme-btn').addEventListener('click', closeModal);
   }
 
   // ---------------------------------------------------------------------
@@ -1070,6 +1131,7 @@
   }
 
   document.getElementById('link-code-btn').addEventListener('click', openLinkCodeModal);
+  document.getElementById('change-theme-btn').addEventListener('click', openThemeModal);
 
   function openUpgradeModal(reason) {
     const root = document.getElementById('modal-root');
@@ -1230,16 +1292,80 @@
     for (let i = 0; i < n; i++) spawnConfetti(Math.random() * confettiCanvas.width, -10 - Math.random() * 60, 1, 3);
   }
 
-  const HYPE_MESSAGES = [
-    'OI OI, SEND IT! 🔥', 'Deadset legend! 💪', 'You flamed that one! 🚀', 'Absolute unit! 😤',
-    'Cooked it — the good way! 🍗', "She's done, easy! ✅", 'Big dog energy! 🐕', 'Certified weapon! ⚡',
-    'Get around it! 🙌', "That's a wrap, big lad! 🎉", 'Full sender, no brakes! 🏁', 'Too easy, champion! 👊',
-    "You're cooking today! 👨‍🍳", 'Flat out smashed that! 💥', "Ay, that's the vibe! 😎", 'Absolute scenes! 🎊'
+  // ---------------------------------------------------------------------
+  // Interest/hobby themes — each kid picks one so celebration hype talks
+  // their language instead of one-size-fits-all Aussie slang.
+  // ---------------------------------------------------------------------
+  const THEMES = [
+    { id: 'aussie', label: 'Aussie Legend', emoji: '🔥' },
+    { id: 'disney', label: 'Disney Magic', emoji: '🏰' },
+    { id: 'gamer', label: 'Gamer', emoji: '🎮' },
+    { id: 'sports', label: 'Sports Star', emoji: '⚽' },
+    { id: 'builder', label: 'Builder Zone', emoji: '🧱' }
   ];
-  const BIG_HYPE_MESSAGES = [
-    'FULL SEND — MISSION COMPLETE, LEGEND! 🏆🔥', "IT'S COOKED, IT'S DONE, YOU'RE A WEAPON! 🏆⚡",
-    'DEADSET CHAMPION — DAY UNLOCKED! 🚲🏆', 'DAY = SMASHED. GO GET AMONGST IT! 🏆🎉'
-  ];
+
+  const HYPE_PACKS = {
+    aussie: {
+      small: [
+        'OI OI, SEND IT! 🔥', 'Deadset legend! 💪', 'You flamed that one! 🚀', 'Absolute unit! 😤',
+        'Cooked it — the good way! 🍗', "She's done, easy! ✅", 'Big dog energy! 🐕', 'Certified weapon! ⚡',
+        'Get around it! 🙌', "That's a wrap, big lad! 🎉", 'Full sender, no brakes! 🏁', 'Too easy, champion! 👊',
+        "You're cooking today! 👨‍🍳", 'Flat out smashed that! 💥', "Ay, that's the vibe! 😎", 'Absolute scenes! 🎊'
+      ],
+      big: [
+        'FULL SEND — MISSION COMPLETE, LEGEND! 🏆🔥', "IT'S COOKED, IT'S DONE, YOU'RE A WEAPON! 🏆⚡",
+        'DEADSET CHAMPION — DAY UNLOCKED! 🚲🏆', 'DAY = SMASHED. GO GET AMONGST IT! 🏆🎉'
+      ]
+    },
+    disney: {
+      small: [
+        'Pure magic! ✨👑', "You're the hero of this story! 🏰", 'Fairy godmother approved! 🪄',
+        'A sprinkle of pixie dust for you! ✨', 'A star is born! ⭐', 'One step closer to happily ever after! 💫',
+        'Royal treatment earned! 👑', 'That was enchanting! 🪄✨', 'Straight out of a storybook! 📖✨',
+        'Wish granted! 🌟'
+      ],
+      big: [
+        'THE WHOLE KINGDOM IS CHEERING! 👑🏰✨', 'YOUR STORY JUST GOT ITS MAGIC ENDING! ✨🎉',
+        'CROWNED CHAMPION OF THE DAY! 👑🌟', 'MAGIC COMPLETE — HAPPILY EVER AFTER! 🏰✨'
+      ]
+    },
+    gamer: {
+      small: [
+        "That's a W! 🎮", 'Clutch play! 🔥', 'GG easy! 🏆', 'Level up! ⬆️', 'Combo complete! 💥',
+        'Achievement unlocked! 🏅', 'Speedrun vibes! ⚡', 'Boss move! 😎', 'New high score! 🕹️', 'Critical hit! 💯'
+      ],
+      big: [
+        'FULL CLEAR — GG WELL PLAYED! 🏆🎮', 'ACHIEVEMENT UNLOCKED: DAY COMPLETE! 🏅⚡',
+        'MAX LEVEL REACHED TODAY! ⬆️🔥', 'GAME OVER... YOU WIN! 🏆🎉'
+      ]
+    },
+    sports: {
+      small: [
+        'What a play! ⚽🏀', 'Absolute champion! 🏆', 'Nothing but net! 🏀', 'Goal! ⚽',
+        'That was all-star! 🌟', 'Personal best! 💪', 'Team captain energy! 🎽', 'On fire today! 🔥',
+        'Photo finish, you win! 🏁', 'Home run! ⚾'
+      ],
+      big: [
+        'FULL-TIME WHISTLE — YOU WON THE DAY! 🏆⚽', 'MVP OF THE DAY, HANDS DOWN! 🏅🌟',
+        'CHAMPIONSHIP PERFORMANCE! 🏆💪', 'GOLD MEDAL DAY! 🥇🎉'
+      ]
+    },
+    builder: {
+      small: [
+        'Crafted that perfectly! ⛏️', 'Level up, builder! 🧱', 'Solid block placed! 🟫',
+        'Mining that mission! ⛏️', 'Built to last! 🏗️', 'XP earned! ✨', 'Loot secured! 💎',
+        'New block unlocked! 🧱', 'Great build! 🏠', 'Resources collected! 🪵'
+      ],
+      big: [
+        'EPIC BUILD COMPLETE — WHOLE WORLD UNLOCKED! 🏗️💎', 'DIAMOND-LEVEL DAY! 💎🧱',
+        'YOU BUILT SOMETHING AMAZING TODAY! 🏗️🌟', 'FULL WORLD SAVED — LEGENDARY DAY! 🧱🏆'
+      ]
+    }
+  };
+
+  function hypePackFor(child) {
+    return HYPE_PACKS[child && child.theme] || HYPE_PACKS.aussie;
+  }
 
   const hypeToast = document.getElementById('hype-toast');
   let hypeTimer = null;
