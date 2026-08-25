@@ -261,6 +261,8 @@
     padding: 8px 0; cursor: pointer;
   }
   .emoji-opt.selected { border-color: #6366f1; background: #312e81; }
+  .emoji-opt.locked { cursor: default; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+  .emoji-opt .lock-badge { font-size: 8px; font-weight: 800; color: #94a3b8; }
   .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .theme-opt {
     background: #1e293b; border: 2px solid #334155; border-radius: 12px;
@@ -293,6 +295,40 @@
   @keyframes bubbleIn { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .game-hud { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 800; color: #cbd5e1; }
   .game-score { color: #facc15; font-size: 16px; }
+  .pattern-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; height: 100%; padding: 12px; box-sizing: border-box; }
+  .pattern-tile {
+    border-radius: 14px; border: none; font-size: 32px; display: flex; align-items: center;
+    justify-content: center; cursor: pointer; transition: filter 0.15s, transform 0.1s;
+  }
+  .pattern-tile.flash { filter: brightness(1.6); transform: scale(1.05); }
+  .pattern-tile:active { transform: scale(0.95); }
+
+  /* ---------- Progress report ---------- */
+  #report-screen { display: flex; flex-direction: column; gap: 12px; }
+  .report-range { display: flex; gap: 8px; }
+  .report-range-btn {
+    flex: 1; background: #1e293b; border: 2px solid #334155; border-radius: 10px;
+    padding: 8px; color: #cbd5e1; font-weight: 800; font-size: 12.5px; cursor: pointer;
+  }
+  .report-range-btn.active { background: #312e81; border-color: #6366f1; color: #fff; }
+  .report-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .report-stat { background: #1e293b; border: 2px solid #334155; border-radius: 12px; padding: 10px 12px; }
+  .report-stat .num { font-size: 22px; font-weight: 900; color: #facc15; }
+  .report-stat .lbl { font-size: 11px; color: #94a3b8; font-weight: 700; }
+  .report-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .report-table th, .report-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #334155; }
+  .report-table th { color: #93c5fd; font-size: 11px; text-transform: uppercase; }
+  .report-bar-bg { background: #334155; height: 6px; border-radius: 4px; overflow: hidden; width: 70px; display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .report-bar-fill { background: #10b981; height: 100%; }
+  @media print {
+    body * { visibility: hidden; }
+    #report-screen, #report-screen * { visibility: visible; }
+    #report-screen { position: absolute; left: 0; top: 0; width: 100%; color: #000; background: #fff; }
+    #report-screen .no-print { display: none !important; }
+    .report-stat, .card { border-color: #ccc !important; background: #f8f8f8 !important; }
+    .report-stat .num { color: #000 !important; }
+    .report-table th { color: #333 !important; }
+  }
 </style>
 </head>
 <body>
@@ -316,6 +352,7 @@
       <button class="primary-btn" id="auth-submit-btn" style="width:100%">Log In</button>
     </div>
     <button class="link-btn" id="auth-toggle-btn">Don't have an account? Sign up</button>
+    <button class="link-btn" id="forgot-password-btn">Forgot your password?</button>
     <button class="link-btn" id="kid-mode-btn">🎈 Kid? Enter your code instead</button>
   </div>
 
@@ -390,7 +427,9 @@
     <div class="task-list" id="task-list"></div>
 
     <button class="ghost-btn parent-only" id="edit-tasks-btn">✏️ Edit Missions</button>
-    <button class="ghost-btn parent-only" id="change-theme-btn">🎭 Change Hype Style</button>
+    <button class="ghost-btn parent-only" id="edit-kid-btn">🧒 Edit Kid Profile</button>
+    <button class="ghost-btn parent-only" id="game-settings-btn">🎮 Game Rules</button>
+    <button class="ghost-btn parent-only" id="report-btn">📊 Progress Report</button>
     <button class="ghost-btn parent-only" id="link-code-btn">🔗 Get Kid's Link Code</button>
     <button class="ghost-btn parent-only" id="reset-btn">🔄 Reset Checklist &amp; Feats for New Day</button>
   </div>
@@ -400,10 +439,30 @@
     <div class="builder-back" id="builder-back">← Back to missions</div>
     <h2 id="builder-title" style="margin:0; font-size:19px;">Edit Missions</h2>
     <div class="builder-list" id="builder-list"></div>
-    <button class="add-row-btn" id="builder-add-btn">+ Add</button>
+    <div style="display:flex; gap:8px;">
+      <button class="add-row-btn" id="builder-quickadd-btn" style="flex:1;">📋 Quick Add</button>
+      <button class="add-row-btn" id="builder-add-btn" style="flex:1;">+ Add Blank</button>
+    </div>
     <div class="builder-save-bar">
       <button class="primary-btn" id="builder-save-btn">Save Changes</button>
     </div>
+  </div>
+
+  <!-- ============ PROGRESS REPORT SCREEN ============ -->
+  <div id="report-screen" class="hidden">
+    <div class="builder-back no-print" id="report-back">← Back to missions</div>
+    <h2 id="report-title" style="margin:0; font-size:19px;">Progress Report</h2>
+    <div class="report-range no-print" id="report-range"></div>
+    <div class="report-summary" id="report-summary"></div>
+    <div class="card">
+      <h2 style="font-size:14px; margin:0 0 8px;">Per-Mission Completion</h2>
+      <table class="report-table" id="report-task-table"></table>
+    </div>
+    <div class="card">
+      <h2 style="font-size:14px; margin:0 0 8px;">Daily Log</h2>
+      <table class="report-table" id="report-daily-table"></table>
+    </div>
+    <button class="ghost-btn no-print" id="report-print-btn">🖨️ Print / Save as PDF</button>
   </div>
 
 </div>
@@ -416,7 +475,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
   import {
     getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-    signInAnonymously, onAuthStateChanged, signOut
+    signInAnonymously, onAuthStateChanged, signOut, sendPasswordResetEmail
   } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot
@@ -521,7 +580,10 @@
     els.authScreen.classList.toggle('hidden', name !== 'auth');
     els.kidScreen.classList.toggle('hidden', name !== 'kid');
     els.appScreen.classList.toggle('hidden', name !== 'app');
-    if (name !== 'app') els.builderScreen.classList.add('hidden');
+    if (name !== 'app') {
+      els.builderScreen.classList.add('hidden');
+      document.getElementById('report-screen').classList.add('hidden');
+    }
   }
 
   document.getElementById('kid-mode-btn').addEventListener('click', () => showScreen('kid'));
@@ -556,6 +618,46 @@
     } finally {
       els.authSubmitBtn.disabled = false;
     }
+  });
+
+  document.getElementById('forgot-password-btn').addEventListener('click', () => {
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet">
+          <h2>Reset Your Password</h2>
+          <p>Enter the email your account is signed up with — we'll send a link to reset your password.</p>
+          <div class="auth-error" id="reset-error"></div>
+          <div class="auth-error show" id="reset-success" style="display:none; background:#052e16; border-color:#166534; color:#86efac;"></div>
+          <label class="field-label">Email</label>
+          <input class="field-input" id="reset-email" type="email" autocomplete="email" placeholder="you@example.com" value="${escapeAttr(els.authEmail.value.trim())}">
+          <button class="primary-btn" id="send-reset-btn" style="width:100%;">Send Reset Link</button>
+          <button class="link-btn" id="close-reset-btn">Cancel</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-reset-btn').addEventListener('click', closeModal);
+    document.getElementById('send-reset-btn').addEventListener('click', async () => {
+      const email = document.getElementById('reset-email').value.trim();
+      const errEl = document.getElementById('reset-error');
+      const okEl = document.getElementById('reset-success');
+      errEl.classList.remove('show');
+      okEl.style.display = 'none';
+      if (!email) { errEl.textContent = 'Enter your email first.'; errEl.classList.add('show'); return; }
+      const btn = document.getElementById('send-reset-btn');
+      btn.disabled = true;
+      try {
+        await sendPasswordResetEmail(auth, email);
+        okEl.textContent = "Sent! Check that email's inbox (and spam folder) for the reset link.";
+        okEl.style.display = 'block';
+      } catch (err) {
+        errEl.textContent = friendlyAuthError(err);
+        errEl.classList.add('show');
+      } finally {
+        btn.disabled = false;
+      }
+    });
   });
 
   function showAuthError(msg) {
@@ -748,16 +850,26 @@
   }
   function levelFor(points) { return Math.floor(points / 100) + 1; }
 
+  const LEVEL_UP_BONUS_MINUTES = 5;
+
   function addPoints(n) {
     if (!isPremium()) return;
     if (!childLogsData) childLogsData = { logs: {} };
     const before = childLogsData.totalPoints || 0;
     const after = before + n;
     childLogsData.totalPoints = after;
-    if (levelFor(after) > levelFor(before)) {
+    const beforeLevel = levelFor(before);
+    const afterLevel = levelFor(after);
+    if (afterLevel > beforeLevel) {
+      const today = todayKey();
+      if (!childLogsData.logs) childLogsData.logs = {};
+      if (!childLogsData.logs[today]) childLogsData.logs[today] = { tasks: {}, feats: {} };
+      childLogsData.logs[today].bonusGameMinutes = (childLogsData.logs[today].bonusGameMinutes || 0) + LEVEL_UP_BONUS_MINUTES;
+      const unlockedIcons = REWARD_EMOJI.filter(r => r.level > beforeLevel && r.level <= afterLevel).map(r => r.emoji);
+      const iconText = unlockedIcons.length ? ` New icon unlocked: ${unlockedIcons.join(' ')}!` : '';
       setTimeout(() => {
         burstFullScreen(140);
-        showHype(`🎉 LEVEL ${levelFor(after)} UNLOCKED! 🎉`, true);
+        showHype(`🎉 LEVEL ${afterLevel} UNLOCKED! +${LEVEL_UP_BONUS_MINUTES} bonus game minutes today!${iconText}`, true);
         playFanfare();
       }, 900);
     }
@@ -990,6 +1102,8 @@
     builderDraft.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'builder-row';
+      const iconField = builderMode === 'tasks' ? 'emoji' : 'icon';
+      const iconVal = item[iconField] || '⭐';
       if (builderMode === 'tasks') {
         row.innerHTML = `
           <div class="builder-row-main">
@@ -998,21 +1112,21 @@
               <input class="field-input" data-field="time" type="time" value="${escapeAttr(item.time)}">
             </div>
             <div class="builder-row-fields full">
-              <input class="field-input" data-field="desc" placeholder="Short description" value="${escapeAttr(item.desc || '')}">
+              <input class="field-input" data-field="desc" placeholder="Short description (optional)" value="${escapeAttr(item.desc || '')}">
             </div>
-            <div class="builder-row-fields full">
-              <input class="field-input" data-field="emoji" placeholder="Emoji (e.g. ⚡)" value="${escapeAttr(item.emoji || '')}" maxlength="4">
-            </div>
+            <button type="button" class="ghost-btn icon-pick-btn" style="width:auto; align-self:flex-start; font-size:15px; padding:8px 14px;">
+              <span style="font-size:20px;">${iconVal}</span> Change Icon
+            </button>
           </div>
           <button class="row-remove" data-idx="${idx}">✕</button>
         `;
       } else {
         row.innerHTML = `
-          <div class="builder-row-main">
-            <div class="builder-row-fields">
-              <input class="field-input" data-field="name" placeholder="Feat name" value="${escapeAttr(item.name)}">
-              <input class="field-input" data-field="icon" placeholder="Icon" value="${escapeAttr(item.icon || '')}" maxlength="4">
-            </div>
+          <div class="builder-row-main" style="display:flex; align-items:center; gap:10px;">
+            <input class="field-input" data-field="name" placeholder="Feat name" value="${escapeAttr(item.name)}" style="margin-bottom:0; flex:1;">
+            <button type="button" class="ghost-btn icon-pick-btn" style="width:auto; font-size:15px; padding:8px 12px; flex-shrink:0;">
+              <span style="font-size:20px;">${iconVal}</span>
+            </button>
           </div>
           <button class="row-remove" data-idx="${idx}">✕</button>
         `;
@@ -1022,6 +1136,7 @@
           builderDraft[idx][input.dataset.field] = input.value;
         });
       });
+      row.querySelector('.icon-pick-btn').addEventListener('click', () => openIconPicker(idx, iconField));
       row.querySelector('.row-remove').addEventListener('click', () => {
         builderDraft.splice(idx, 1);
         renderBuilder();
@@ -1034,6 +1149,41 @@
     return (str == null ? '' : String(str)).replace(/"/g, '&quot;');
   }
 
+  // ---------------------------------------------------------------------
+  // Icon picker — tap-to-choose instead of typing an emoji by hand.
+  // ---------------------------------------------------------------------
+  const BUILDER_ICON_PALETTE = [
+    '⚡','🛏️','🥣','🪥','🎒','📚','☕','🧹','🛁','📖','😴','🍽️','🐾','📱','⭐',
+    '🎯','🧠','🎨','🎵','⚽','🎮','🚿','🧦','👕','🚗','🏫','💊','🧴','🗑️','🔓',
+    '🤝','😌','🗣️','💡','🧼','🫶','🚀','🏆','✅','💪'
+  ];
+  function openIconPicker(idx, field) {
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet">
+          <h2>Pick an Icon</h2>
+          <div class="emoji-grid" id="icon-picker-grid"></div>
+          <button class="link-btn" id="close-icon-picker-btn">Cancel</button>
+        </div>
+      </div>
+    `;
+    const grid = document.getElementById('icon-picker-grid');
+    BUILDER_ICON_PALETTE.forEach((e) => {
+      const opt = document.createElement('div');
+      opt.className = 'emoji-opt' + (e === builderDraft[idx][field] ? ' selected' : '');
+      opt.textContent = e;
+      opt.addEventListener('click', () => {
+        builderDraft[idx][field] = e;
+        closeModal();
+        renderBuilder();
+      });
+      grid.appendChild(opt);
+    });
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-icon-picker-btn').addEventListener('click', closeModal);
+  }
+
   document.getElementById('builder-add-btn').addEventListener('click', () => {
     if (builderMode === 'tasks') {
       builderDraft.push({ id: makeId(), time: '12:00', emoji: '⭐', title: 'New Mission', desc: '' });
@@ -1042,6 +1192,182 @@
     }
     renderBuilder();
   });
+
+  // ---------------------------------------------------------------------
+  // Quick Add — a tap-to-insert library of common missions/feats so a
+  // parent isn't typing everything from scratch.
+  // ---------------------------------------------------------------------
+  const TASK_TEMPLATES = [
+    { emoji: '⚡', title: 'Wake & Get Ready', desc: 'Out of bed, dressed, teeth brushed', time: '07:30' },
+    { emoji: '🛏️', title: 'Make Bed', desc: 'Bed made, room tidy', time: '07:45' },
+    { emoji: '🥣', title: 'Breakfast', desc: 'Eat and clear plate', time: '08:00' },
+    { emoji: '🪥', title: 'Brush Teeth', desc: '', time: '08:15' },
+    { emoji: '🎒', title: 'Pack Bag', desc: 'School bag ready to go', time: '08:20' },
+    { emoji: '📚', title: 'Homework Time', desc: 'Quiet focus time', time: '16:00' },
+    { emoji: '☕', title: 'Brain Break', desc: 'Snack, stretch, no screens', time: '16:45' },
+    { emoji: '🧹', title: 'Tidy Room', desc: '', time: '17:00' },
+    { emoji: '🛁', title: 'Shower / Bath', desc: '', time: '18:30' },
+    { emoji: '📖', title: 'Reading Time', desc: '', time: '19:00' },
+    { emoji: '😴', title: 'Bedtime', desc: 'Lights out', time: '20:00' },
+    { emoji: '🍽️', title: 'Set / Clear the Table', desc: '', time: '18:00' },
+    { emoji: '🐾', title: 'Feed the Pet', desc: '', time: '07:50' },
+    { emoji: '📱', title: 'Screen Time', desc: 'Earned free time', time: '17:30' }
+  ];
+  const FEAT_TEMPLATES = [
+    { icon: '🧠', name: 'Broke a Mental Block' },
+    { icon: '🤐', name: 'Zero-Complaint Day' },
+    { icon: '🚀', name: 'Self-Starter Speed' },
+    { icon: '🤝', name: 'Great Teamwork' },
+    { icon: '😌', name: 'Stayed Calm Under Pressure' },
+    { icon: '🗣️', name: 'Used Words, Not Actions' },
+    { icon: '🎯', name: 'Finished Without Reminders' },
+    { icon: '🧼', name: 'Extra Tidy Effort' },
+    { icon: '💡', name: 'Great Idea / Problem-Solving' },
+    { icon: '🫶', name: 'Kind to Others' }
+  ];
+
+  function openQuickAddModal() {
+    const templates = builderMode === 'tasks' ? TASK_TEMPLATES : FEAT_TEMPLATES;
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet">
+          <h2>Quick Add</h2>
+          <p>Tap any to add it — you can still tweak it after.</p>
+          <div class="builder-list" id="quickadd-list"></div>
+          <button class="link-btn" id="close-quickadd-btn">Done</button>
+        </div>
+      </div>
+    `;
+    const list = document.getElementById('quickadd-list');
+    templates.forEach((t) => {
+      const row = document.createElement('div');
+      row.className = 'builder-row';
+      row.style.cursor = 'pointer';
+      if (builderMode === 'tasks') {
+        row.innerHTML = `<div class="builder-row-main" style="display:flex; align-items:center; gap:10px;"><span style="font-size:22px;">${t.emoji}</span><div><div class="task-title" style="margin:0;">${escapeHtml(t.title)}</div><div class="task-desc">${escapeHtml(t.desc || '')}</div></div></div><span style="font-size:20px; color:#93c5fd;">+</span>`;
+      } else {
+        row.innerHTML = `<div class="builder-row-main" style="display:flex; align-items:center; gap:10px;"><span style="font-size:22px;">${t.icon}</span><div class="task-title" style="margin:0;">${escapeHtml(t.name)}</div></div><span style="font-size:20px; color:#93c5fd;">+</span>`;
+      }
+      row.addEventListener('click', () => {
+        if (builderMode === 'tasks') {
+          builderDraft.push({ id: makeId(), time: t.time, emoji: t.emoji, title: t.title, desc: t.desc || '' });
+        } else {
+          builderDraft.push({ id: makeId(), icon: t.icon, name: t.name });
+        }
+        renderBuilder();
+      });
+      list.appendChild(row);
+    });
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-quickadd-btn').addEventListener('click', closeModal);
+  }
+
+  document.getElementById('builder-quickadd-btn').addEventListener('click', openQuickAddModal);
+
+  // ---------------------------------------------------------------------
+  // Progress report — a clean, printable summary of how the active kid
+  // has been going, meant to be easy to hand to an OT, teacher or
+  // paediatrician. Reads from that kid's own logs doc; Premium only.
+  // ---------------------------------------------------------------------
+  function computeReportData(days) {
+    const child = activeChild();
+    const logs = (childLogsData && childLogsData.logs) || {};
+    const today = new Date();
+    const dateKeys = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      dateKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    }
+
+    const dailyRows = dateKeys.map((key) => {
+      const log = logs[key];
+      const tasksDone = log && log.tasks ? Object.values(log.tasks).filter(Boolean).length : 0;
+      const featsDone = log && log.feats ? Object.values(log.feats).filter(Boolean).length : 0;
+      return { date: key, hasLog: !!log, tasksDone, tasksTotal: child.tasks.length, featsDone };
+    });
+
+    const loggedDays = dailyRows.filter(r => r.hasLog);
+    const totalTasksPossible = loggedDays.length * child.tasks.length;
+    const totalTasksDone = loggedDays.reduce((sum, r) => sum + r.tasksDone, 0);
+    const overallRate = totalTasksPossible ? Math.round((totalTasksDone / totalTasksPossible) * 100) : 0;
+    const totalFeats = loggedDays.reduce((sum, r) => sum + r.featsDone, 0);
+
+    let streak = 0;
+    for (const r of dailyRows) {
+      if (r.hasLog && r.tasksTotal > 0 && r.tasksDone === r.tasksTotal) streak++;
+      else break;
+    }
+
+    const perTask = child.tasks.map((task) => {
+      let doneCount = 0;
+      loggedDays.forEach((r) => {
+        const log = logs[r.date];
+        if (log && log.tasks && log.tasks[task.id]) doneCount++;
+      });
+      return { title: task.title, emoji: task.emoji, done: doneCount, total: loggedDays.length };
+    });
+
+    return { dailyRows, loggedDaysCount: loggedDays.length, overallRate, totalFeats, streak, perTask };
+  }
+
+  function formatReportDate(key) {
+    const [y, m, d] = key.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  function renderReport(days) {
+    const child = activeChild();
+    document.getElementById('report-title').textContent = `${child.name}'s Progress Report`;
+    const data = computeReportData(days);
+
+    const rangeWrap = document.getElementById('report-range');
+    rangeWrap.innerHTML = '';
+    [7, 14, 30].forEach((n) => {
+      const btn = document.createElement('button');
+      btn.className = 'report-range-btn' + (n === days ? ' active' : '');
+      btn.textContent = `${n} Days`;
+      btn.addEventListener('click', () => renderReport(n));
+      rangeWrap.appendChild(btn);
+    });
+
+    document.getElementById('report-summary').innerHTML = `
+      <div class="report-stat"><div class="num">${data.overallRate}%</div><div class="lbl">Overall Mission Completion</div></div>
+      <div class="report-stat"><div class="num">${data.streak}</div><div class="lbl">Day Streak (100% missions)</div></div>
+      <div class="report-stat"><div class="num">${data.loggedDaysCount}</div><div class="lbl">Days With Activity Logged</div></div>
+      <div class="report-stat"><div class="num">${data.totalFeats}</div><div class="lbl">Total Feats Earned</div></div>
+    `;
+
+    const taskRows = data.perTask.map((t) => {
+      const pct = t.total ? Math.round((t.done / t.total) * 100) : 0;
+      return `<tr><td>${t.emoji || ''} ${escapeHtml(t.title)}</td><td><div class="report-bar-bg"><div class="report-bar-fill" style="width:${pct}%"></div></div>${t.done}/${t.total} (${pct}%)</td></tr>`;
+    }).join('');
+    document.getElementById('report-task-table').innerHTML = `<tr><th>Mission</th><th>Completion</th></tr>${taskRows || '<tr><td colspan="2">No data yet.</td></tr>'}`;
+
+    const dailyRows = data.dailyRows.filter(r => r.hasLog).map((r) => {
+      return `<tr><td>${formatReportDate(r.date)}</td><td>${r.tasksDone}/${r.tasksTotal} missions</td><td>${r.featsDone} feats</td></tr>`;
+    }).join('');
+    document.getElementById('report-daily-table').innerHTML = `<tr><th>Date</th><th>Missions</th><th>Feats</th></tr>${dailyRows || '<tr><td colspan="3">No data yet.</td></tr>'}`;
+  }
+
+  function openReport() {
+    renderReport(14);
+    els.appScreen.classList.add('hidden');
+    document.getElementById('report-screen').classList.remove('hidden');
+  }
+  function closeReport() {
+    document.getElementById('report-screen').classList.add('hidden');
+    els.appScreen.classList.remove('hidden');
+  }
+
+  document.getElementById('report-btn').addEventListener('click', () => {
+    if (!isPremium()) { openUpgradeModal('The Progress Report is a Premium feature.'); return; }
+    openReport();
+  });
+  document.getElementById('report-back').addEventListener('click', closeReport);
+  document.getElementById('report-print-btn').addEventListener('click', () => window.print());
 
   document.getElementById('builder-save-btn').addEventListener('click', async () => {
     const child = activeChild();
@@ -1054,11 +1380,18 @@
   // ---------------------------------------------------------------------
   // Add-child modal (premium only, enforced at call site above)
   // ---------------------------------------------------------------------
-  const EMOJI_CHOICES = ['🧑','👦','👧','🦸','🦸‍♀️','🐯','🐉','🚀','⚡','🌟','🦖','🐨'];
+  const STARTER_EMOJI = ['🧑', '👦', '👧', '🐨', '🌟', '🐯'];
+  // Reward icons unlock as a kid levels up — see addPoints(). "level" is the
+  // level at which that icon becomes selectable in the Edit Kid modal.
+  const REWARD_EMOJI = [
+    { emoji: '🦸', level: 2 }, { emoji: '🦸‍♀️', level: 2 }, { emoji: '🐉', level: 3 },
+    { emoji: '🚀', level: 4 }, { emoji: '⚡', level: 5 }, { emoji: '🦖', level: 6 },
+    { emoji: '👑', level: 8 }, { emoji: '💎', level: 10 }
+  ];
 
   function openAddChildModal() {
     const root = document.getElementById('modal-root');
-    let selectedEmoji = EMOJI_CHOICES[0];
+    let selectedEmoji = STARTER_EMOJI[0];
     let selectedTheme = THEMES[0].id;
     root.innerHTML = `
       <div class="modal-overlay" id="modal-overlay">
@@ -1078,7 +1411,7 @@
       </div>
     `;
     const grid = document.getElementById('emoji-grid');
-    EMOJI_CHOICES.forEach((e, i) => {
+    STARTER_EMOJI.forEach((e, i) => {
       const opt = document.createElement('div');
       opt.className = 'emoji-opt' + (i === 0 ? ' selected' : '');
       opt.textContent = e;
@@ -1116,37 +1449,114 @@
   }
 
   // ---------------------------------------------------------------------
-  // Change an existing kid's hype theme (parent-only).
+  // Edit an existing kid's profile: name, icon, and hype style (including
+  // building a fully custom hype style). Parent-only. Works for every
+  // kid, including the auto-seeded first child.
   // ---------------------------------------------------------------------
-  function openThemeModal() {
+  function openEditKidModal() {
     const child = activeChild();
     const root = document.getElementById('modal-root');
-    root.innerHTML = `
-      <div class="modal-overlay" id="modal-overlay">
-        <div class="modal-sheet">
-          <h2>${escapeHtml(child.name)}'s Hype Style</h2>
-          <p>Pick what ${escapeHtml(child.name)} is into — celebration messages will match.</p>
-          <div class="theme-grid" id="theme-grid"></div>
-          <button class="link-btn" id="close-theme-btn">Close</button>
+    let selectedEmoji = child.emoji;
+    let selectedTheme = child.theme || 'aussie';
+    let customDraft = child.customHype
+      ? { small: (child.customHype.small || []).slice(), big: (child.customHype.big || []).slice() }
+      : { small: [], big: [] };
+
+    function renderMain() {
+      root.innerHTML = `
+        <div class="modal-overlay" id="modal-overlay">
+          <div class="modal-sheet">
+            <h2>Edit Kid Profile</h2>
+            <label class="field-label">Name</label>
+            <input class="field-input" id="edit-kid-name" value="${escapeAttr(child.name)}">
+            <label class="field-label">Pick an icon</label>
+            <div class="emoji-grid" id="edit-emoji-grid"></div>
+            <label class="field-label" style="margin-top:4px;">Hype style</label>
+            <p style="margin:-6px 0 4px;">This flavors the celebration messages when they finish missions.</p>
+            <div class="theme-grid" id="edit-theme-grid"></div>
+            <button class="primary-btn" id="save-edit-kid-btn">Save Changes</button>
+            <button class="link-btn" id="cancel-edit-kid-btn">Cancel</button>
+          </div>
         </div>
-      </div>
-    `;
-    const themeGrid = document.getElementById('theme-grid');
-    const currentTheme = child.theme || 'aussie';
-    THEMES.forEach((t) => {
-      const opt = document.createElement('div');
-      opt.className = 'theme-opt' + (t.id === currentTheme ? ' selected' : '');
-      opt.innerHTML = `<span class="theme-emoji">${t.emoji}</span><span>${escapeHtml(t.label)}</span>`;
-      opt.addEventListener('click', async () => {
-        child.theme = t.id;
-        themeGrid.querySelectorAll('.theme-opt').forEach(el => el.classList.remove('selected'));
-        opt.classList.add('selected');
-        await saveFamily();
+      `;
+      const emojiGrid = document.getElementById('edit-emoji-grid');
+      const kidLevel = levelFor(getPoints());
+      const allIcons = STARTER_EMOJI.map(e => ({ emoji: e, level: 1 })).concat(REWARD_EMOJI);
+      allIcons.forEach((entry) => {
+        const locked = kidLevel < entry.level;
+        const opt = document.createElement('div');
+        opt.className = 'emoji-opt' + (entry.emoji === selectedEmoji ? ' selected' : '') + (locked ? ' locked' : '');
+        opt.innerHTML = locked
+          ? `<span style="opacity:0.35;">${entry.emoji}</span><span class="lock-badge">🔒 Lv${entry.level}</span>`
+          : entry.emoji;
+        if (!locked) {
+          opt.addEventListener('click', () => {
+            selectedEmoji = entry.emoji;
+            emojiGrid.querySelectorAll('.emoji-opt').forEach(el => el.classList.remove('selected'));
+            opt.classList.add('selected');
+          });
+        }
+        emojiGrid.appendChild(opt);
       });
-      themeGrid.appendChild(opt);
-    });
-    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
-    document.getElementById('close-theme-btn').addEventListener('click', closeModal);
+
+      const themeGrid = document.getElementById('edit-theme-grid');
+      const allThemeTiles = THEMES.concat([{ id: 'custom', label: customDraft.small.length ? 'My Own (edit)' : 'Create Your Own', emoji: '🎨' }]);
+      allThemeTiles.forEach((t) => {
+        const opt = document.createElement('div');
+        opt.className = 'theme-opt' + (t.id === selectedTheme ? ' selected' : '');
+        opt.innerHTML = `<span class="theme-emoji">${t.emoji}</span><span>${escapeHtml(t.label)}</span>`;
+        opt.addEventListener('click', () => {
+          if (t.id === 'custom') { renderCustomEditor(); return; }
+          selectedTheme = t.id;
+          themeGrid.querySelectorAll('.theme-opt').forEach(el => el.classList.remove('selected'));
+          opt.classList.add('selected');
+        });
+        themeGrid.appendChild(opt);
+      });
+
+      document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+      document.getElementById('cancel-edit-kid-btn').addEventListener('click', closeModal);
+      document.getElementById('save-edit-kid-btn').addEventListener('click', async () => {
+        const name = document.getElementById('edit-kid-name').value.trim();
+        if (name) child.name = name;
+        child.emoji = selectedEmoji;
+        child.theme = selectedTheme;
+        if (selectedTheme === 'custom') child.customHype = customDraft;
+        await saveFamily();
+        render();
+        closeModal();
+      });
+    }
+
+    function renderCustomEditor() {
+      root.innerHTML = `
+        <div class="modal-overlay" id="modal-overlay">
+          <div class="modal-sheet">
+            <h2>Create Your Own Hype Style</h2>
+            <p>One message per line. Add an emoji if you like — they'll pop up randomly when missions are completed.</p>
+            <label class="field-label">Everyday mission messages</label>
+            <textarea class="field-input" id="custom-small" rows="5" style="resize:vertical;" placeholder="Nice one! 🎉&#10;You crushed it! 💪">${escapeHtml(customDraft.small.join('\n'))}</textarea>
+            <label class="field-label">All-missions-done messages (extra special)</label>
+            <textarea class="field-input" id="custom-big" rows="3" style="resize:vertical;" placeholder="AMAZING DAY! 🏆">${escapeHtml(customDraft.big.join('\n'))}</textarea>
+            <button class="primary-btn" id="save-custom-hype-btn">Use This Style</button>
+            <button class="link-btn" id="back-from-custom-btn">← Back</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+      document.getElementById('back-from-custom-btn').addEventListener('click', renderMain);
+      document.getElementById('save-custom-hype-btn').addEventListener('click', () => {
+        const parseLines = (val) => val.split('\n').map(s => s.trim()).filter(Boolean);
+        const small = parseLines(document.getElementById('custom-small').value);
+        const big = parseLines(document.getElementById('custom-big').value);
+        if (!small.length) { alert('Add at least one everyday message first.'); return; }
+        customDraft = { small, big: big.length ? big : small };
+        selectedTheme = 'custom';
+        renderMain();
+      });
+    }
+
+    renderMain();
   }
 
   // ---------------------------------------------------------------------
@@ -1194,7 +1604,7 @@
   }
 
   document.getElementById('link-code-btn').addEventListener('click', openLinkCodeModal);
-  document.getElementById('change-theme-btn').addEventListener('click', openThemeModal);
+  document.getElementById('edit-kid-btn').addEventListener('click', openEditKidModal);
 
   function openUpgradeModal(reason) {
     const root = document.getElementById('modal-root');
@@ -1217,24 +1627,200 @@
   document.getElementById('upgrade-btn-2').addEventListener('click', () => openUpgradeModal('Epic Feats and celebration effects are a Premium feature.'));
 
   function closeModal() {
-    stopGame();
+    stopAllGames();
     document.getElementById('modal-root').innerHTML = '';
   }
 
   // ---------------------------------------------------------------------
-  // Power Pop — a 20-second bubble-tap mini-game for break time. Anyone
-  // (parent or kid) can launch it from the header; Premium only.
+  // Game rules — per-kid parent controls for when mini-games unlock and
+  // how long they can be played each day.
   // ---------------------------------------------------------------------
-  let gameState = null;
-  const GAME_EMOJIS = ['⭐', '⚡', '🔥', '💎', '🎯'];
+  function gameSettingsFor(child) {
+    const gs = (child && child.gameSettings) || {};
+    return {
+      unlockMode: gs.unlockMode || 'always',
+      tasksRequired: gs.tasksRequired != null ? gs.tasksRequired : 3,
+      windowStart: gs.windowStart || '15:00',
+      windowEnd: gs.windowEnd || '16:00',
+      dailyMinutesLimit: gs.dailyMinutesLimit != null ? gs.dailyMinutesLimit : 0
+    };
+  }
 
-  function openGameModal() {
+  function minutesAllowedToday() {
+    const gs = gameSettingsFor(activeChild());
+    if (gs.dailyMinutesLimit <= 0) return Infinity;
+    return gs.dailyMinutesLimit + (todaysLog().bonusGameMinutes || 0);
+  }
+
+  function minutesUsedToday() {
+    return todaysLog().gameMinutesUsed || 0;
+  }
+
+  function gameEligibility() {
+    const child = activeChild();
+    const gs = gameSettingsFor(child);
+    const log = todaysLog();
+
+    const allowed = minutesAllowedToday();
+    const used = minutesUsedToday();
+    if (allowed !== Infinity && used >= allowed) {
+      return { ok: false, reason: `Out of game time for today (${Math.round(used)}/${Math.round(allowed)} min used). Come back tomorrow, or ask your parent!` };
+    }
+
+    if (gs.unlockMode === 'afterTasks') {
+      const doneCount = Object.values(log.tasks || {}).filter(Boolean).length;
+      if (doneCount < gs.tasksRequired) {
+        const remaining = gs.tasksRequired - doneCount;
+        return { ok: false, reason: `Complete ${remaining} more mission${remaining === 1 ? '' : 's'} to unlock the game!` };
+      }
+    } else if (gs.unlockMode === 'window') {
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      if (!(nowMin >= timeToMinutes(gs.windowStart) && nowMin <= timeToMinutes(gs.windowEnd))) {
+        return { ok: false, reason: `Games are only unlocked between ${formatTime(gs.windowStart)} and ${formatTime(gs.windowEnd)}.` };
+      }
+    }
+    return { ok: true, remainingMinutes: allowed === Infinity ? null : Math.max(0, allowed - used) };
+  }
+
+  function openGameSettingsModal() {
+    const child = activeChild();
+    const gs = gameSettingsFor(child);
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet">
+          <h2>🎮 Game Rules for ${escapeHtml(child.name)}</h2>
+          <p>Control when mini-games unlock and how long they can be played.</p>
+          <label class="field-label">When can they play?</label>
+          <select class="field-input" id="gs-mode">
+            <option value="always">Anytime</option>
+            <option value="afterTasks">After completing missions</option>
+            <option value="window">Only during a time window</option>
+          </select>
+          <div id="gs-tasks-wrap">
+            <label class="field-label">Missions required first</label>
+            <input class="field-input" id="gs-tasks-required" type="number" min="1" max="20" value="${gs.tasksRequired}">
+          </div>
+          <div id="gs-window-wrap">
+            <label class="field-label">Allowed from</label>
+            <input class="field-input" id="gs-window-start" type="time" value="${gs.windowStart}">
+            <label class="field-label">Until</label>
+            <input class="field-input" id="gs-window-end" type="time" value="${gs.windowEnd}">
+          </div>
+          <label class="field-label">Daily game time limit (minutes, 0 = unlimited)</label>
+          <input class="field-input" id="gs-minutes-limit" type="number" min="0" max="180" value="${gs.dailyMinutesLimit}">
+          <button class="primary-btn" id="save-gs-btn">Save Game Rules</button>
+          <button class="link-btn" id="cancel-gs-btn">Cancel</button>
+        </div>
+      </div>
+    `;
+    const modeSelect = document.getElementById('gs-mode');
+    modeSelect.value = gs.unlockMode;
+    const syncVisibility = () => {
+      document.getElementById('gs-tasks-wrap').classList.toggle('hidden', modeSelect.value !== 'afterTasks');
+      document.getElementById('gs-window-wrap').classList.toggle('hidden', modeSelect.value !== 'window');
+    };
+    syncVisibility();
+    modeSelect.addEventListener('change', syncVisibility);
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('cancel-gs-btn').addEventListener('click', closeModal);
+    document.getElementById('save-gs-btn').addEventListener('click', async () => {
+      child.gameSettings = {
+        unlockMode: modeSelect.value,
+        tasksRequired: Math.max(1, parseInt(document.getElementById('gs-tasks-required').value, 10) || 3),
+        windowStart: document.getElementById('gs-window-start').value || '15:00',
+        windowEnd: document.getElementById('gs-window-end').value || '16:00',
+        dailyMinutesLimit: Math.max(0, parseInt(document.getElementById('gs-minutes-limit').value, 10) || 0)
+      };
+      await saveFamily();
+      closeModal();
+    });
+  }
+
+  document.getElementById('game-settings-btn').addEventListener('click', () => {
+    if (!isPremium()) { openUpgradeModal('Game Rules are a Premium feature.'); return; }
+    openGameSettingsModal();
+  });
+
+  // ---------------------------------------------------------------------
+  // Mini-games — Power Pop (reflex) and Pattern Match (memory). Anyone
+  // (parent or kid) can launch them from the header; Premium only, and
+  // gated by that kid's Game Rules above.
+  // ---------------------------------------------------------------------
+  function stopAllGames() {
+    if (ppState) { clearTimeout(ppState.spawnTimeout); clearInterval(ppState.timerInterval); ppState.running = false; }
+    if (pmState) { pmState.running = false; pmState.accepting = false; }
+  }
+
+  async function finishGameRound(score, startedAt, label) {
+    const elapsedMinutes = Math.max(0, (Date.now() - startedAt) / 60000);
+    const today = todayKey();
+    if (!childLogsData) childLogsData = { logs: {} };
+    if (!childLogsData.logs) childLogsData.logs = {};
+    if (!childLogsData.logs[today]) childLogsData.logs[today] = { tasks: {}, feats: {} };
+    childLogsData.logs[today].gameMinutesUsed = (childLogsData.logs[today].gameMinutesUsed || 0) + elapsedMinutes;
+    burstFullScreen(60);
+    showHype(`${label}: +${score} points!`, false);
+    playFeatChime();
+    addPoints(score);
+    await saveChildLogs();
+  }
+
+  function openGamePicker() {
+    const elig = gameEligibility();
+    const root = document.getElementById('modal-root');
+    if (!elig.ok) {
+      root.innerHTML = `
+        <div class="modal-overlay" id="modal-overlay">
+          <div class="modal-sheet" style="align-items:center; text-align:center;">
+            <div style="font-size:38px;">🔒</div>
+            <h2>Not Yet!</h2>
+            <p>${escapeHtml(elig.reason)}</p>
+            <button class="primary-btn" id="close-elig-btn" style="width:100%;">Got it</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+      document.getElementById('close-elig-btn').addEventListener('click', closeModal);
+      return;
+    }
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet" style="align-items:center; text-align:center;">
+          <h2>🎮 Game Time!</h2>
+          ${elig.remainingMinutes != null ? `<p>${Math.round(elig.remainingMinutes)} minute${Math.round(elig.remainingMinutes) === 1 ? '' : 's'} left today.</p>` : ''}
+          <div style="display:flex; flex-direction:column; gap:10px; width:100%;">
+            <button class="ghost-btn" id="pick-powerpop-btn" style="font-size:15px; padding:14px;">⚡ Power Pop — tap the bubbles</button>
+            <button class="ghost-btn" id="pick-pattern-btn" style="font-size:15px; padding:14px;">🧠 Pattern Match — repeat the sequence</button>
+          </div>
+          <button class="link-btn" id="close-picker-btn">Close</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-picker-btn').addEventListener('click', closeModal);
+    document.getElementById('pick-powerpop-btn').addEventListener('click', openPowerPopModal);
+    document.getElementById('pick-pattern-btn').addEventListener('click', openPatternModal);
+  }
+
+  document.getElementById('game-btn').addEventListener('click', () => {
+    if (!isPremium()) { openUpgradeModal('Mini-games are a Premium feature.'); return; }
+    openGamePicker();
+  });
+
+  // --- Power Pop: 20-second reflex bubble-tap, gets faster as it goes ---
+  let ppState = null;
+  const GAME_EMOJIS = ['⭐', '⚡', '🔥', '💎', '🎯'];
+  const POWER_POP_SECONDS = 20;
+
+  function openPowerPopModal() {
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-overlay" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
           <h2>⚡ Power Pop</h2>
-          <p>Tap the bubbles before they vanish — great for a quick break! 20 seconds, go!</p>
+          <p>Tap the bubbles before they vanish — they get faster as you go! 20 seconds, go!</p>
           <div class="game-hud" style="width:100%;">
             <span>⏱️ <span id="game-timer">20</span>s</span>
             <span class="game-score">⭐ <span id="game-score">0</span></span>
@@ -1246,38 +1832,49 @@
       </div>
     `;
     const finishAndClose = async () => {
-      if (gameState && gameState.running) await endGame();
+      if (ppState && ppState.running) await endPowerPop();
       closeModal();
     };
     document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') finishAndClose(); });
     document.getElementById('close-game-btn').addEventListener('click', finishAndClose);
-    document.getElementById('game-start-btn').addEventListener('click', startGame);
+    document.getElementById('game-start-btn').addEventListener('click', startPowerPop);
   }
 
-  function startGame() {
-    stopGame();
+  function startPowerPop() {
+    stopAllGames();
     const startBtn = document.getElementById('game-start-btn');
     startBtn.disabled = true;
     startBtn.textContent = 'Playing…';
     const area = document.getElementById('game-area');
     area.innerHTML = '';
-    gameState = { score: 0, timeLeft: 20, running: true };
+    ppState = { score: 0, timeLeft: POWER_POP_SECONDS, running: true, startedAt: Date.now() };
     document.getElementById('game-score').textContent = '0';
-    document.getElementById('game-timer').textContent = '20';
+    document.getElementById('game-timer').textContent = String(POWER_POP_SECONDS);
 
-    gameState.spawnInterval = setInterval(() => spawnBubble(area), 750);
-    gameState.timerInterval = setInterval(() => {
-      if (!gameState) return;
-      gameState.timeLeft--;
+    scheduleNextBubble(area);
+    ppState.timerInterval = setInterval(() => {
+      if (!ppState) return;
+      ppState.timeLeft--;
       const timerEl = document.getElementById('game-timer');
-      if (timerEl) timerEl.textContent = String(gameState.timeLeft);
-      if (gameState.timeLeft <= 0) endGame();
+      if (timerEl) timerEl.textContent = String(ppState.timeLeft);
+      if (ppState.timeLeft <= 0) endPowerPop();
     }, 1000);
-    spawnBubble(area);
+  }
+
+  function scheduleNextBubble(area) {
+    if (!ppState || !ppState.running) return;
+    const elapsedFrac = 1 - (ppState.timeLeft / POWER_POP_SECONDS);
+    const spawnDelay = Math.max(320, 750 - elapsedFrac * 400); // ramps 750ms -> 320ms
+    ppState.spawnTimeout = setTimeout(() => {
+      spawnBubble(area);
+      scheduleNextBubble(area);
+    }, spawnDelay);
   }
 
   function spawnBubble(area) {
-    if (!gameState || !gameState.running || !area) return;
+    if (!ppState || !ppState.running || !area) return;
+    const elapsedFrac = 1 - (ppState.timeLeft / POWER_POP_SECONDS);
+    const lifetime = Math.max(600, 1100 - elapsedFrac * 500); // ramps 1100ms -> 600ms
     const rect = area.getBoundingClientRect();
     const size = 46;
     const x = Math.random() * Math.max(0, rect.width - size);
@@ -1290,44 +1887,146 @@
     let popped = false;
     const remove = () => { if (bubble.parentNode) bubble.parentNode.removeChild(bubble); };
     bubble.addEventListener('click', () => {
-      if (popped || !gameState || !gameState.running) return;
+      if (popped || !ppState || !ppState.running) return;
       popped = true;
-      gameState.score++;
+      ppState.score++;
       const scoreEl = document.getElementById('game-score');
-      if (scoreEl) scoreEl.textContent = String(gameState.score);
+      if (scoreEl) scoreEl.textContent = String(ppState.score);
       if (navigator.vibrate) navigator.vibrate(20);
       remove();
     });
     area.appendChild(bubble);
-    setTimeout(remove, 1100);
+    setTimeout(remove, lifetime);
   }
 
-  function stopGame() {
-    if (gameState) {
-      clearInterval(gameState.spawnInterval);
-      clearInterval(gameState.timerInterval);
-      gameState.running = false;
-    }
-  }
-
-  async function endGame() {
-    const finalScore = gameState ? gameState.score : 0;
-    stopGame();
+  async function endPowerPop() {
+    const finalScore = ppState ? ppState.score : 0;
+    const startedAt = ppState ? ppState.startedAt : Date.now();
+    stopAllGames();
     const area = document.getElementById('game-area');
     if (area) area.innerHTML = '';
     const startBtn = document.getElementById('game-start-btn');
     if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
-    burstFullScreen(60);
-    showHype(`⚡ Power Pop: +${finalScore} points!`, false);
-    playFeatChime();
-    addPoints(finalScore);
-    await saveChildLogs();
+    await finishGameRound(finalScore, startedAt, '⚡ Power Pop');
   }
 
-  document.getElementById('game-btn').addEventListener('click', () => {
-    if (!isPremium()) { openUpgradeModal('The Power Pop mini-game is a Premium feature.'); return; }
-    openGameModal();
-  });
+  // --- Pattern Match: Simon-says style memory game ---
+  let pmState = null;
+  const PATTERN_TILES = [
+    { emoji: '🔴', color: '#ef4444' }, { emoji: '🟡', color: '#facc15' },
+    { emoji: '🟢', color: '#10b981' }, { emoji: '🔵', color: '#3b82f6' }
+  ];
+
+  function openPatternModal() {
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet" style="align-items:center; text-align:center;">
+          <h2>🧠 Pattern Match</h2>
+          <p>Watch the pattern, then tap it back in the same order. It gets longer each round!</p>
+          <div class="game-hud" style="width:100%;">
+            <span id="pattern-status">Tap Start</span>
+            <span class="game-score">Round <span id="pattern-round">0</span></span>
+          </div>
+          <div class="game-area" id="pattern-area"><div class="pattern-grid" id="pattern-grid"></div></div>
+          <button class="primary-btn" id="pattern-start-btn" style="width:100%;">Start</button>
+          <button class="link-btn" id="close-pattern-btn">Close</button>
+        </div>
+      </div>
+    `;
+    const grid = document.getElementById('pattern-grid');
+    PATTERN_TILES.forEach((t, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'pattern-tile';
+      btn.style.background = t.color;
+      btn.textContent = t.emoji;
+      btn.addEventListener('click', () => onPatternTap(i));
+      grid.appendChild(btn);
+    });
+    const finishAndClose = async () => {
+      if (pmState && pmState.running) await endPatternMatch();
+      closeModal();
+    };
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') finishAndClose(); });
+    document.getElementById('close-pattern-btn').addEventListener('click', finishAndClose);
+    document.getElementById('pattern-start-btn').addEventListener('click', startPatternMatch);
+  }
+
+  function startPatternMatch() {
+    stopAllGames();
+    const startBtn = document.getElementById('pattern-start-btn');
+    startBtn.disabled = true;
+    startBtn.textContent = 'Playing…';
+    pmState = { sequence: [], userIdx: 0, round: 0, running: true, accepting: false, startedAt: Date.now() };
+    document.getElementById('pattern-round').textContent = '0';
+    nextPatternRound();
+  }
+
+  function nextPatternRound() {
+    if (!pmState) return;
+    pmState.round++;
+    pmState.sequence.push(Math.floor(Math.random() * PATTERN_TILES.length));
+    pmState.userIdx = 0;
+    pmState.accepting = false;
+    const roundEl = document.getElementById('pattern-round');
+    if (roundEl) roundEl.textContent = String(pmState.round);
+    const statusEl = document.getElementById('pattern-status');
+    if (statusEl) statusEl.textContent = 'Watch…';
+    playPatternSequence();
+  }
+
+  function playPatternSequence() {
+    const tiles = document.querySelectorAll('.pattern-tile');
+    let i = 0;
+    const step = () => {
+      if (!pmState || !pmState.running) return;
+      if (i >= pmState.sequence.length) {
+        pmState.accepting = true;
+        const statusEl = document.getElementById('pattern-status');
+        if (statusEl) statusEl.textContent = 'Your turn!';
+        return;
+      }
+      const tile = tiles[pmState.sequence[i]];
+      if (tile) {
+        tile.classList.add('flash');
+        setTimeout(() => tile.classList.remove('flash'), 320);
+      }
+      i++;
+      setTimeout(step, 500);
+    };
+    setTimeout(step, 400);
+  }
+
+  function onPatternTap(idx) {
+    if (!pmState || !pmState.running || !pmState.accepting) return;
+    const tiles = document.querySelectorAll('.pattern-tile');
+    if (tiles[idx]) { tiles[idx].classList.add('flash'); setTimeout(() => tiles[idx].classList.remove('flash'), 200); }
+    const expected = pmState.sequence[pmState.userIdx];
+    if (idx !== expected) {
+      pmState.accepting = false;
+      endPatternMatch();
+      return;
+    }
+    pmState.userIdx++;
+    if (navigator.vibrate) navigator.vibrate(15);
+    if (pmState.userIdx >= pmState.sequence.length) {
+      pmState.accepting = false;
+      const statusEl = document.getElementById('pattern-status');
+      if (statusEl) statusEl.textContent = 'Nice! Next round…';
+      setTimeout(() => { if (pmState && pmState.running) nextPatternRound(); }, 700);
+    }
+  }
+
+  async function endPatternMatch() {
+    const finalScore = pmState ? Math.max(0, pmState.round - 1) : 0;
+    const startedAt = pmState ? pmState.startedAt : Date.now();
+    if (pmState) pmState.running = false;
+    const startBtn = document.getElementById('pattern-start-btn');
+    if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
+    const statusEl = document.getElementById('pattern-status');
+    if (statusEl) statusEl.textContent = `Game over — ${finalScore} round${finalScore === 1 ? '' : 's'}!`;
+    await finishGameRound(finalScore, startedAt, '🧠 Pattern Match');
+  }
 
   // ---------------------------------------------------------------------
   // Settings modal: sign out + dev-only premium toggle (placeholder until
@@ -1473,7 +2172,11 @@
     { id: 'disney', label: 'Disney Magic', emoji: '🏰' },
     { id: 'gamer', label: 'Gamer', emoji: '🎮' },
     { id: 'sports', label: 'Sports Star', emoji: '⚽' },
-    { id: 'builder', label: 'Builder Zone', emoji: '🧱' }
+    { id: 'builder', label: 'Builder Zone', emoji: '🧱' },
+    { id: 'music', label: 'Pop Star', emoji: '🎤' },
+    { id: 'space', label: 'Space Explorer', emoji: '🚀' },
+    { id: 'animal', label: 'Animal Lover', emoji: '🐾' },
+    { id: 'hero', label: 'Superhero', emoji: '🦸' }
   ];
 
   const HYPE_PACKS = {
@@ -1532,10 +2235,58 @@
         'EPIC BUILD COMPLETE — WHOLE WORLD UNLOCKED! 🏗️💎', 'DIAMOND-LEVEL DAY! 💎🧱',
         'YOU BUILT SOMETHING AMAZING TODAY! 🏗️🌟', 'FULL WORLD SAVED — LEGENDARY DAY! 🧱🏆'
       ]
+    },
+    music: {
+      small: [
+        'Chart-topping effort! 🎤', 'That was a hit! 🎶', 'Standing ovation! 👏', 'Backstage pass earned! 🎫',
+        'Perfect pitch! 🎵', 'Encore-worthy! 🌟', 'You nailed that note! 🎼', 'Rockstar moves! 🤘',
+        'Sold-out show energy! 🎟️', 'Mic drop! 🎤'
+      ],
+      big: [
+        'SOLD-OUT STADIUM CHEERING FOR YOU! 🎤🏟️', 'TOP OF THE CHARTS TODAY! 🎶🏆',
+        'ENCORE! ENCORE! DAY COMPLETE! 👏🌟', 'CHART-TOPPING PERFORMANCE! 🎤🥇'
+      ]
+    },
+    space: {
+      small: [
+        'Blast off! 🚀', 'Orbit achieved! 🛰️', 'Out of this world! 🌌', 'Star navigator! ⭐',
+        'Mission control approved! 👨‍🚀', 'Zero-gravity awesome! 🌠', 'Cosmic effort! ☄️',
+        'Moonwalk-level cool! 🌕', 'Rocket fuel success! 🚀', 'Galaxy explorer! 🪐'
+      ],
+      big: [
+        'LIFTOFF — MISSION COMPLETE, ASTRONAUT! 🚀🌌', 'YOU JUST CONQUERED THE GALAXY! 🪐🏆',
+        'HOUSTON, WE HAVE A CHAMPION! 👨‍🚀⭐', 'FULL ORBIT — LEGENDARY DAY! 🛰️🎉'
+      ]
+    },
+    animal: {
+      small: [
+        'Paw-some job! 🐾', "That's the cat's meow! 🐱", 'Wild success! 🦁', 'Fetching effort! 🐶',
+        'Purrfect! 😸', 'You really pounced on that! 🐯', 'Herd leader energy! 🐘', 'Top of the food chain! 🦈',
+        'Flying high! 🦅', 'Nailed it, no bones about it! 🦴'
+      ],
+      big: [
+        'TOP OF THE PACK — DAY COMPLETE! 🐾🏆', 'KING OF THE JUNGLE TODAY! 🦁👑',
+        'PURR-FECT DAY, ALL DONE! 😸🌟', 'SOARING ABOVE THE REST! 🦅🎉'
+      ]
+    },
+    hero: {
+      small: [
+        'Super effort! 🦸', 'Saved the day! 🦸‍♀️', 'Heroic move! 💥', 'Power activated! ⚡',
+        'Justice served! 🛡️', 'Cape-worthy! 🧣', 'Unstoppable! 💪', 'Super strength! 🏋️',
+        'Villain? Defeated. 😤', 'To the rescue! 🚨'
+      ],
+      big: [
+        'DAY SAVED — TRUE SUPERHERO! 🦸🏆', 'POWERS FULLY CHARGED, MISSION COMPLETE! ⚡🌟',
+        'THE WORLD IS SAFE — YOU DID IT! 🛡️🎉', 'LEGENDARY HERO STATUS UNLOCKED! 🦸‍♀️👑'
+      ]
     }
   };
 
   function hypePackFor(child) {
+    if (child && child.theme === 'custom' && child.customHype && child.customHype.small && child.customHype.small.length) {
+      const big = (child.customHype.big && child.customHype.big.length) ? child.customHype.big : child.customHype.small;
+      return { small: child.customHype.small, big };
+    }
     return HYPE_PACKS[child && child.theme] || HYPE_PACKS.aussie;
   }
 
