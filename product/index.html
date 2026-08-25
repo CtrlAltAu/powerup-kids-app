@@ -242,33 +242,6 @@
   }
   .hype-toast.show { transform: translate(-50%, 0); opacity: 1; }
   .hype-toast.big { background: linear-gradient(135deg, #facc15, #f97316, #ec4899); font-size: 18px; padding: 16px 24px; }
-  .nudge-toast {
-    position: fixed; left: 50%; top: 14px; transform: translate(-50%, -140%);
-    background: #1e3a8a; color: #dbeafe; font-weight: 800; font-size: 13.5px;
-    padding: 10px 18px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    z-index: 60; max-width: 90%; text-align: center; opacity: 0;
-    transition: transform 0.35s cubic-bezier(.34,1.56,.64,1), opacity 0.35s ease; pointer-events: none;
-  }
-  .nudge-toast.show { transform: translate(-50%, 0); opacity: 1; }
-  .parent-banner {
-    display: flex; align-items: center; gap: 8px; background: #422006; border: 2px solid #92400e;
-    color: #fed7aa; border-radius: 12px; padding: 10px 12px; font-size: 12.5px; font-weight: 700;
-  }
-  .parent-banner button { background: none; border: none; color: #fed7aa; font-weight: 900; cursor: pointer; font-size: 15px; padding: 0 4px; }
-
-  /* ---------- Daily check-in ---------- */
-  .checkin-scale { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
-  .checkin-scale-btn {
-    font-size: 24px; background: #1e293b; border: 2px solid #334155; border-radius: 10px;
-    padding: 6px 9px; cursor: pointer; line-height: 1;
-  }
-  .checkin-scale-btn.selected { border-color: #6366f1; background: #312e81; }
-  .checkin-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-  .checkin-tag {
-    background: #1e293b; border: 2px solid #334155; border-radius: 999px; padding: 6px 12px;
-    font-size: 12px; font-weight: 700; cursor: pointer; color: #cbd5e1;
-  }
-  .checkin-tag.selected { border-color: #10b981; background: #064e3b; color: #6ee7b7; }
   #confetti-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 55; }
 
   .modal-overlay {
@@ -280,8 +253,6 @@
     width: 100%; max-width: 520px; padding: 20px; display: flex; flex-direction: column; gap: 12px;
     max-height: 85vh; overflow-y: auto;
   }
-  .modal-overlay.centered { align-items: center; padding: 16px; box-sizing: border-box; }
-  .modal-overlay.centered .modal-sheet { border-radius: 20px; max-height: 90vh; }
   .modal-sheet h2 { font-size: 18px; margin: 0; }
   .modal-sheet p { font-size: 13.5px; color: #94a3b8; margin: 0; }
   .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
@@ -364,7 +335,6 @@
 
 <canvas id="confetti-canvas"></canvas>
 <div class="hype-toast" id="hype-toast"></div>
-<div class="nudge-toast" id="nudge-toast"></div>
 
 <div class="app-container">
 
@@ -411,18 +381,12 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="icon-btn hidden" id="leaderboard-btn" title="Leaderboard">🏆</button>
         <button class="icon-btn hidden" id="game-btn" title="Mini-game">🎮</button>
         <button class="icon-btn parent-only" id="settings-btn" title="Settings">⚙️</button>
       </div>
     </div>
 
     <div class="child-switcher" id="child-switcher"></div>
-
-    <div class="parent-banner hidden parent-only" id="parent-nudge-banner">
-      <span style="flex:1;" id="parent-nudge-text"></span>
-      <button id="parent-nudge-dismiss" title="Dismiss">✕</button>
-    </div>
 
     <div class="tier-banner free hidden parent-only" id="tier-banner-free">
       <span>🔒 Free plan — basic missions only</span>
@@ -465,7 +429,6 @@
     <button class="ghost-btn parent-only" id="edit-tasks-btn">✏️ Edit Missions</button>
     <button class="ghost-btn parent-only" id="edit-kid-btn">🧒 Edit Kid Profile</button>
     <button class="ghost-btn parent-only" id="game-settings-btn">🎮 Game Rules</button>
-    <button class="ghost-btn parent-only" id="level-rewards-btn">🎁 Level Rewards</button>
     <button class="ghost-btn parent-only" id="report-btn">📊 Progress Report</button>
     <button class="ghost-btn parent-only" id="link-code-btn">🔗 Get Kid's Link Code</button>
     <button class="ghost-btn parent-only" id="reset-btn">🔄 Reset Checklist &amp; Feats for New Day</button>
@@ -498,11 +461,6 @@
     <div class="card">
       <h2 style="font-size:14px; margin:0 0 8px;">Daily Log</h2>
       <table class="report-table" id="report-daily-table"></table>
-    </div>
-    <div class="card">
-      <h2 style="font-size:14px; margin:0 0 4px;">Self-Reported Wellbeing (Daily Check-In)</h2>
-      <p style="margin:0 0 8px; font-size:11.5px; color:#94a3b8;">Reported by the child themselves at the end of each day.</p>
-      <table class="report-table" id="report-checkin-table"></table>
     </div>
     <button class="ghost-btn no-print" id="report-print-btn">🖨️ Print / Save as PDF</button>
   </div>
@@ -754,7 +712,6 @@
     familyRef = doc(db, 'families', user.uid);
     const snap = await getDoc(familyRef);
 
-    let isNewFamily = false;
     if (!snap.exists()) {
       const seedChild = defaultChild('My Kid');
       familyData = {
@@ -764,12 +721,10 @@
         children: { [seedChild.id]: seedChild }
       };
       await setDoc(familyRef, familyData);
-      isNewFamily = true;
     }
 
     subscribeToFamily();
     showScreen('app');
-    if (isNewFamily) setTimeout(openOnboardingTipsModal, 500);
   });
 
   // Live sync of the routine/tier data (parent-editable). Also keeps the
@@ -876,7 +831,6 @@
     document.getElementById('bonus-section').classList.toggle('hidden', !isPremium());
     document.getElementById('feats-locked-panel').classList.toggle('hidden', isPremium());
     document.getElementById('game-btn').classList.toggle('hidden', !isPremium());
-    document.getElementById('leaderboard-btn').classList.toggle('hidden', !isPremium());
 
     renderChildSwitcher();
     renderTasks();
@@ -913,12 +867,9 @@
       childLogsData.logs[today].bonusGameMinutes = (childLogsData.logs[today].bonusGameMinutes || 0) + LEVEL_UP_BONUS_MINUTES;
       const unlockedIcons = REWARD_EMOJI.filter(r => r.level > beforeLevel && r.level <= afterLevel).map(r => r.emoji);
       const iconText = unlockedIcons.length ? ` New icon unlocked: ${unlockedIcons.join(' ')}!` : '';
-      const child = activeChild();
-      const customReward = child && Array.isArray(child.levelRewards) ? child.levelRewards.find(r => r.level === afterLevel) : null;
-      const rewardText = customReward ? ` 🎁 You earned: ${customReward.reward}!` : '';
       setTimeout(() => {
         burstFullScreen(140);
-        showHype(`🎉 LEVEL ${afterLevel} UNLOCKED! +${LEVEL_UP_BONUS_MINUTES} bonus game minutes today!${iconText}${rewardText}`, true);
+        showHype(`🎉 LEVEL ${afterLevel} UNLOCKED! +${LEVEL_UP_BONUS_MINUTES} bonus game minutes today!${iconText}`, true);
         playFanfare();
       }, 900);
     }
@@ -1038,45 +989,32 @@
   // separate from the family doc. This is what lets a linked kid device
   // check things off without ever touching the parent's routine/tier data.
   // ---------------------------------------------------------------------
-  // Points/celebrations are only ever awarded the FIRST time a task or feat
-  // is completed each day (tracked in tasksEverDone/featsEverDone, which
-  // only ever grows). This stops a kid from farming points/game-time by
-  // repeatedly un-checking and re-checking the same box — the live
-  // `tasks`/`feats` maps still drive the on-screen checkboxes, but credit
-  // (points, reports, game unlocks) always reads the "ever done" ledger.
   async function toggleTask(taskId, evt) {
     const child = activeChild();
     const key = todayKey();
     if (!childLogsData) childLogsData = { logs: {} };
     if (!childLogsData.logs) childLogsData.logs = {};
     if (!childLogsData.logs[key]) childLogsData.logs[key] = { tasks: {}, feats: {} };
-    const log = childLogsData.logs[key];
-    if (!log.tasksEverDone) log.tasksEverDone = {};
-    const wasDone = !!log.tasks[taskId];
-    log.tasks[taskId] = !wasDone;
+    const wasDone = !!childLogsData.logs[key].tasks[taskId];
+    childLogsData.logs[key].tasks[taskId] = !wasDone;
     if (navigator.vibrate) navigator.vibrate(40);
 
     if (!wasDone) {
       popCard(taskId);
-      const firstTimeToday = !log.tasksEverDone[taskId];
-      if (firstTimeToday) {
-        log.tasksEverDone[taskId] = true;
-        const allDoneEver = Object.keys(log.tasksEverDone).length === child.tasks.length;
-        if (isPremium()) {
-          const pack = hypePackFor(child);
-          if (allDoneEver && !log.allDoneCelebrated) {
-            log.allDoneCelebrated = true;
-            burstFullScreen(110);
-            showHype(randomFrom(pack.big), true);
-            playFanfare();
-          } else {
-            burstFromEvent(evt, 28);
-            showHype(randomFrom(pack.small), false);
-            playTaskChime();
-          }
-          addPoints(5);
+      const doneCount = Object.values(childLogsData.logs[key].tasks).filter(Boolean).length;
+      const allDone = doneCount === child.tasks.length;
+      if (isPremium()) {
+        const pack = hypePackFor(child);
+        if (allDone) {
+          burstFullScreen(110);
+          showHype(randomFrom(pack.big), true);
+          playFanfare();
+        } else {
+          burstFromEvent(evt, 28);
+          showHype(randomFrom(pack.small), false);
+          playTaskChime();
         }
-        if (allDoneEver) maybeShowDailyCheckin();
+        addPoints(5);
       }
     }
     renderTasks();
@@ -1089,17 +1027,10 @@
     if (!childLogsData) childLogsData = { logs: {} };
     if (!childLogsData.logs) childLogsData.logs = {};
     if (!childLogsData.logs[key]) childLogsData.logs[key] = { tasks: {}, feats: {} };
-    const log = childLogsData.logs[key];
-    if (!log.featsEverDone) log.featsEverDone = {};
-    const wasActive = !!log.feats[featId];
-    log.feats[featId] = !wasActive;
+    const wasActive = !!childLogsData.logs[key].feats[featId];
+    childLogsData.logs[key].feats[featId] = !wasActive;
     if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
-    if (!wasActive && !log.featsEverDone[featId]) {
-      log.featsEverDone[featId] = true;
-      burstFromEvent(evt, 20, 2.4);
-      playFeatChime();
-      addPoints(10);
-    }
+    if (!wasActive) { burstFromEvent(evt, 20, 2.4); playFeatChime(); addPoints(10); }
     renderFeats();
     await saveChildLogs();
   }
@@ -1352,9 +1283,9 @@
 
     const dailyRows = dateKeys.map((key) => {
       const log = logs[key];
-      const tasksDone = log && log.tasksEverDone ? Object.keys(log.tasksEverDone).length : 0;
-      const featsDone = log && log.featsEverDone ? Object.keys(log.featsEverDone).length : 0;
-      return { date: key, hasLog: !!log, tasksDone, tasksTotal: child.tasks.length, featsDone, checkin: log && log.checkin };
+      const tasksDone = log && log.tasks ? Object.values(log.tasks).filter(Boolean).length : 0;
+      const featsDone = log && log.feats ? Object.values(log.feats).filter(Boolean).length : 0;
+      return { date: key, hasLog: !!log, tasksDone, tasksTotal: child.tasks.length, featsDone };
     });
 
     const loggedDays = dailyRows.filter(r => r.hasLog);
@@ -1373,19 +1304,12 @@
       let doneCount = 0;
       loggedDays.forEach((r) => {
         const log = logs[r.date];
-        if (log && log.tasksEverDone && log.tasksEverDone[task.id]) doneCount++;
+        if (log && log.tasks && log.tasks[task.id]) doneCount++;
       });
       return { title: task.title, emoji: task.emoji, done: doneCount, total: loggedDays.length };
     });
 
-    const checkinDays = dailyRows.filter(r => r.checkin);
-    const avg = (field) => {
-      const vals = checkinDays.map(r => r.checkin[field]).filter(v => typeof v === 'number');
-      return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-    };
-    const wellbeing = { avgMood: avg('mood'), avgFocus: avg('focus'), avgEnergy: avg('energy'), checkinDaysCount: checkinDays.length };
-
-    return { dailyRows, loggedDaysCount: loggedDays.length, overallRate, totalFeats, streak, perTask, wellbeing };
+    return { dailyRows, loggedDaysCount: loggedDays.length, overallRate, totalFeats, streak, perTask };
   }
 
   function formatReportDate(key) {
@@ -1409,15 +1333,11 @@
       rangeWrap.appendChild(btn);
     });
 
-    const moodStr = data.wellbeing.avgMood != null ? `${MOOD_SCALE[Math.round(data.wellbeing.avgMood) - 1] || ''} ${data.wellbeing.avgMood.toFixed(1)}/5` : '—';
-    const focusStr = data.wellbeing.avgFocus != null ? `${data.wellbeing.avgFocus.toFixed(1)}/5 ⭐` : '—';
     document.getElementById('report-summary').innerHTML = `
       <div class="report-stat"><div class="num">${data.overallRate}%</div><div class="lbl">Overall Mission Completion</div></div>
       <div class="report-stat"><div class="num">${data.streak}</div><div class="lbl">Day Streak (100% missions)</div></div>
       <div class="report-stat"><div class="num">${data.loggedDaysCount}</div><div class="lbl">Days With Activity Logged</div></div>
       <div class="report-stat"><div class="num">${data.totalFeats}</div><div class="lbl">Total Feats Earned</div></div>
-      <div class="report-stat"><div class="num">${moodStr}</div><div class="lbl">Avg. Self-Reported Mood</div></div>
-      <div class="report-stat"><div class="num">${focusStr}</div><div class="lbl">Avg. Self-Reported Focus</div></div>
     `;
 
     const taskRows = data.perTask.map((t) => {
@@ -1430,17 +1350,6 @@
       return `<tr><td>${formatReportDate(r.date)}</td><td>${r.tasksDone}/${r.tasksTotal} missions</td><td>${r.featsDone} feats</td></tr>`;
     }).join('');
     document.getElementById('report-daily-table').innerHTML = `<tr><th>Date</th><th>Missions</th><th>Feats</th></tr>${dailyRows || '<tr><td colspan="3">No data yet.</td></tr>'}`;
-
-    const checkinRows = data.dailyRows.filter(r => r.checkin).map((r) => {
-      const c = r.checkin;
-      const moodEmoji = c.mood ? MOOD_SCALE[c.mood - 1] : '—';
-      const tagsStr = (c.tags && c.tags.length) ? escapeHtml(c.tags.join(', ')) : '—';
-      return `<tr><td>${formatReportDate(r.date)}</td><td>${moodEmoji}</td><td>${c.focus ? c.focus + '/5' : '—'}</td><td>${c.energy ? c.energy + '/5' : '—'}</td><td>${tagsStr}</td></tr>`;
-    }).join('');
-    const checkinTable = document.getElementById('report-checkin-table');
-    if (checkinTable) {
-      checkinTable.innerHTML = `<tr><th>Date</th><th>Mood</th><th>Focus</th><th>Energy</th><th>Notes</th></tr>${checkinRows || '<tr><td colspan="5">No self check-ins yet.</td></tr>'}`;
-    }
   }
 
   function openReport() {
@@ -1759,7 +1668,7 @@
     }
 
     if (gs.unlockMode === 'afterTasks') {
-      const doneCount = Object.keys(log.tasksEverDone || {}).length;
+      const doneCount = Object.values(log.tasks || {}).filter(Boolean).length;
       if (doneCount < gs.tasksRequired) {
         const remaining = gs.tasksRequired - doneCount;
         return { ok: false, reason: `Complete ${remaining} more mission${remaining === 1 ? '' : 's'} to unlock the game!` };
@@ -1835,124 +1744,6 @@
   });
 
   // ---------------------------------------------------------------------
-  // Level Rewards — a parent-defined real-world reward for reaching a
-  // level ("Level 5 -> chocolate!"), shown to the parent here and folded
-  // into the level-up celebration toast in addPoints().
-  // ---------------------------------------------------------------------
-  function openLevelRewardsModal() {
-    const child = activeChild();
-    let draft = (child.levelRewards || []).map(r => ({ ...r })).sort((a, b) => a.level - b.level);
-    const root = document.getElementById('modal-root');
-
-    function render() {
-      root.innerHTML = `
-        <div class="modal-overlay" id="modal-overlay">
-          <div class="modal-sheet">
-            <h2>🎁 Level Rewards for ${escapeHtml(child.name)}</h2>
-            <p>Set a real-world reward for reaching a level — it'll show up in their celebration and here for you.</p>
-            <div class="builder-list" id="rewards-list"></div>
-            <button class="add-row-btn" id="add-reward-row-btn">+ Add a Level Reward</button>
-            <button class="primary-btn" id="save-rewards-btn">Save</button>
-            <button class="link-btn" id="cancel-rewards-btn">Cancel</button>
-          </div>
-        </div>
-      `;
-      const list = document.getElementById('rewards-list');
-      draft.forEach((r, idx) => {
-        const row = document.createElement('div');
-        row.className = 'builder-row';
-        row.innerHTML = `
-          <div class="builder-row-main" style="display:flex; align-items:center; gap:8px;">
-            <input class="field-input" data-field="level" type="number" min="1" max="999" placeholder="Level" value="${escapeAttr(r.level)}" style="width:80px; margin-bottom:0;">
-            <input class="field-input" data-field="reward" placeholder="e.g. Chocolate! 🍫" value="${escapeAttr(r.reward)}" style="flex:1; margin-bottom:0;">
-          </div>
-          <button class="row-remove" data-idx="${idx}">✕</button>
-        `;
-        row.querySelectorAll('input').forEach((input) => {
-          input.addEventListener('input', () => {
-            const val = input.value;
-            draft[idx][input.dataset.field] = input.dataset.field === 'level' ? (parseInt(val, 10) || 0) : val;
-          });
-        });
-        row.querySelector('.row-remove').addEventListener('click', () => { draft.splice(idx, 1); render(); });
-        list.appendChild(row);
-      });
-      document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
-      document.getElementById('cancel-rewards-btn').addEventListener('click', closeModal);
-      document.getElementById('add-reward-row-btn').addEventListener('click', () => {
-        draft.push({ level: (draft[draft.length - 1]?.level || 0) + 5, reward: '' });
-        render();
-      });
-      document.getElementById('save-rewards-btn').addEventListener('click', async () => {
-        child.levelRewards = draft
-          .filter(r => r.level > 0 && r.reward.trim())
-          .map(r => ({ level: r.level, reward: r.reward.trim() }))
-          .sort((a, b) => a.level - b.level);
-        await saveFamily();
-        closeModal();
-      });
-    }
-    render();
-  }
-
-  document.getElementById('level-rewards-btn').addEventListener('click', () => {
-    if (!isPremium()) { openUpgradeModal('Level Rewards are a Premium feature.'); return; }
-    openLevelRewardsModal();
-  });
-
-  // ---------------------------------------------------------------------
-  // Onboarding tips — shown once when a parent first sets up their
-  // account, and reachable again later from Settings. General,
-  // research-informed starting points (not medical advice) drawn from
-  // CDC guidance on behavior therapy for ADHD and the NPDC-ASD/AFIRM
-  // evidence base on visual supports for autism.
-  // ---------------------------------------------------------------------
-  const ONBOARDING_TIPS = [
-    { emoji: '👋', title: 'Welcome!', body: "A few research-informed ideas that can help kids with ADHD or autism thrive with routines. This is general information, not medical advice — your child's OT, paediatrician, or psychologist can help tailor it to them specifically." },
-    { emoji: '🖼️', title: 'Make it visual', body: 'Spoken instructions can be hard to hold onto in the moment. A concrete visual cue for each step — an icon, a picture, a simple word — tends to work better than a long explanation. That\'s exactly what each mission\'s icon is for.' },
-    { emoji: '🧩', title: 'Break it into small steps', body: 'Keep each mission to one clear action rather than several bundled together. Smaller, well-defined steps are easier to start — and easier to finish.' },
-    { emoji: '⭐', title: 'Praise the effort', body: 'Positive reinforcement — noticing and celebrating effort, not just a perfect result — is a core part of evidence-based behavior support for ADHD. Try celebrating the attempt, not only the finish.' },
-    { emoji: '⏰', title: 'Keep timing predictable', body: "Consistent timing and a heads-up before a task changes can ease the friction of transitions. Each mission has its own time here — feel free to adjust them to match your family's real rhythm." },
-    { emoji: '🎉', title: "You've got this", body: 'Set it up however fits your family, and adjust as you learn what works. You can always revisit these tips later from Settings.' }
-  ];
-
-  function openOnboardingTipsModal() {
-    let idx = 0;
-    const root = document.getElementById('modal-root');
-    function render() {
-      const tip = ONBOARDING_TIPS[idx];
-      const isLast = idx === ONBOARDING_TIPS.length - 1;
-      root.innerHTML = `
-        <div class="modal-overlay centered" id="modal-overlay">
-          <div class="modal-sheet" style="align-items:center; text-align:center;">
-            <div style="font-size:44px;">${tip.emoji}</div>
-            <h2>${escapeHtml(tip.title)}</h2>
-            <p>${escapeHtml(tip.body)}</p>
-            <div style="display:flex; gap:6px; justify-content:center; margin:4px 0;">
-              ${ONBOARDING_TIPS.map((_, i) => `<span style="width:7px; height:7px; border-radius:50%; background:${i === idx ? '#6366f1' : '#334155'};"></span>`).join('')}
-            </div>
-            <div style="display:flex; gap:8px; width:100%;">
-              ${idx > 0 ? '<button class="ghost-btn" id="tip-back-btn" style="flex:1;">Back</button>' : ''}
-              <button class="primary-btn" id="tip-next-btn" style="flex:2;">${isLast ? "Let's Go! 🚀" : 'Next'}</button>
-            </div>
-            ${!isLast ? '<button class="link-btn" id="tip-skip-btn">Skip</button>' : ''}
-          </div>
-        </div>
-      `;
-      document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
-      document.getElementById('tip-next-btn').addEventListener('click', () => {
-        if (isLast) { closeModal(); return; }
-        idx++; render();
-      });
-      const backBtn = document.getElementById('tip-back-btn');
-      if (backBtn) backBtn.addEventListener('click', () => { idx--; render(); });
-      const skipBtn = document.getElementById('tip-skip-btn');
-      if (skipBtn) skipBtn.addEventListener('click', closeModal);
-    }
-    render();
-  }
-
-  // ---------------------------------------------------------------------
   // Mini-games — Power Pop (reflex) and Pattern Match (memory). Anyone
   // (parent or kid) can launch them from the header; Premium only, and
   // gated by that kid's Game Rules above.
@@ -1962,7 +1753,7 @@
     if (pmState) { pmState.running = false; pmState.accepting = false; }
   }
 
-  async function finishGameRound(score, startedAt, label, gameKey) {
+  async function finishGameRound(score, startedAt, label) {
     const elapsedMinutes = Math.max(0, (Date.now() - startedAt) / 60000);
     const today = todayKey();
     if (!childLogsData) childLogsData = { logs: {} };
@@ -1974,96 +1765,14 @@
     playFeatChime();
     addPoints(score);
     await saveChildLogs();
-    if (gameKey) updateLeaderboard(gameKey, score);
   }
-
-  // Best-effort: a kid can only write their OWN leaderboard entry, and this
-  // is purely a fun-motivator, so any failure here (e.g. rules not yet
-  // updated) should never interrupt the actual game flow.
-  async function updateLeaderboard(gameKey, score) {
-    if (!familyRef) return;
-    try {
-      const child = activeChild();
-      const ref = doc(db, 'families', familyRef.id, 'leaderboard', child.id);
-      const snap = await getDoc(ref);
-      const data = snap.exists() ? snap.data() : {};
-      const field = gameKey === 'pattern' ? 'bestPattern' : 'bestPowerPop';
-      if (!data[field] || score > data[field]) {
-        data[field] = score;
-        data.updatedAt = todayKey();
-        await setDoc(ref, data);
-      }
-    } catch (e) { /* leaderboard is best-effort */ }
-  }
-
-  async function openLeaderboardModal() {
-    const root = document.getElementById('modal-root');
-    root.innerHTML = `
-      <div class="modal-overlay centered" id="modal-overlay">
-        <div class="modal-sheet" style="align-items:center; text-align:center;">
-          <h2>🏆 Leaderboard</h2>
-          <p>Loading…</p>
-        </div>
-      </div>
-    `;
-    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
-
-    const childIds = Object.keys(familyData.children || {});
-    let entries = [];
-    try {
-      entries = await Promise.all(childIds.map(async (cid) => {
-        const c = familyData.children[cid];
-        const ref = doc(db, 'families', familyRef.id, 'leaderboard', cid);
-        const snap = await getDoc(ref);
-        const data = snap.exists() ? snap.data() : {};
-        return { id: cid, name: c.name, emoji: c.emoji, bestPowerPop: data.bestPowerPop || 0, bestPattern: data.bestPattern || 0 };
-      }));
-    } catch (e) {
-      entries = [];
-    }
-
-    const renderRows = (ranked, field, unitLabel) => {
-      if (!ranked.length || ranked.every(e => e[field] === 0)) return '<p style="font-size:12.5px; color:#94a3b8;">No scores yet — go play!</p>';
-      const medals = ['🥇', '🥈', '🥉'];
-      return `<div class="builder-list">${ranked.map((e, i) => `
-        <div class="builder-row" style="display:flex; align-items:center; gap:10px;">
-          <span style="width:26px; text-align:center; font-size:16px;">${medals[i] || (i + 1) + '.'}</span>
-          <span style="font-size:20px;">${e.emoji}</span>
-          <span style="flex:1; text-align:left; font-weight:700;">${escapeHtml(e.name)}</span>
-          <span style="font-weight:900; color:#facc15;">${e[field]} ${unitLabel}</span>
-        </div>`).join('')}</div>`;
-    };
-
-    const powerPopRanked = [...entries].sort((a, b) => b.bestPowerPop - a.bestPowerPop);
-    const patternRanked = [...entries].sort((a, b) => b.bestPattern - a.bestPattern);
-
-    root.innerHTML = `
-      <div class="modal-overlay centered" id="modal-overlay">
-        <div class="modal-sheet" style="align-items:center; text-align:center;">
-          <h2>🏆 Leaderboard</h2>
-          <label class="field-label">⚡ Power Pop — most pops in 20s</label>
-          ${renderRows(powerPopRanked, 'bestPowerPop', 'pops')}
-          <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
-          ${renderRows(patternRanked, 'bestPattern', 'rounds')}
-          <button class="link-btn" id="close-leaderboard-btn">Close</button>
-        </div>
-      </div>
-    `;
-    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
-    document.getElementById('close-leaderboard-btn').addEventListener('click', closeModal);
-  }
-
-  document.getElementById('leaderboard-btn').addEventListener('click', () => {
-    if (!isPremium()) { openUpgradeModal('The Leaderboard is a Premium feature.'); return; }
-    openLeaderboardModal();
-  });
 
   function openGamePicker() {
     const elig = gameEligibility();
     const root = document.getElementById('modal-root');
     if (!elig.ok) {
       root.innerHTML = `
-        <div class="modal-overlay centered" id="modal-overlay">
+        <div class="modal-overlay" id="modal-overlay">
           <div class="modal-sheet" style="align-items:center; text-align:center;">
             <div style="font-size:38px;">🔒</div>
             <h2>Not Yet!</h2>
@@ -2077,7 +1786,7 @@
       return;
     }
     root.innerHTML = `
-      <div class="modal-overlay centered" id="modal-overlay">
+      <div class="modal-overlay" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
           <h2>🎮 Game Time!</h2>
           ${elig.remainingMinutes != null ? `<p>${Math.round(elig.remainingMinutes)} minute${Math.round(elig.remainingMinutes) === 1 ? '' : 's'} left today.</p>` : ''}
@@ -2108,7 +1817,7 @@
   function openPowerPopModal() {
     const root = document.getElementById('modal-root');
     root.innerHTML = `
-      <div class="modal-overlay centered" id="modal-overlay">
+      <div class="modal-overlay" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
           <h2>⚡ Power Pop</h2>
           <p>Tap the bubbles before they vanish — they get faster as you go! 20 seconds, go!</p>
@@ -2198,7 +1907,7 @@
     if (area) area.innerHTML = '';
     const startBtn = document.getElementById('game-start-btn');
     if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
-    await finishGameRound(finalScore, startedAt, '⚡ Power Pop', 'powerPop');
+    await finishGameRound(finalScore, startedAt, '⚡ Power Pop');
   }
 
   // --- Pattern Match: Simon-says style memory game ---
@@ -2211,7 +1920,7 @@
   function openPatternModal() {
     const root = document.getElementById('modal-root');
     root.innerHTML = `
-      <div class="modal-overlay centered" id="modal-overlay">
+      <div class="modal-overlay" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
           <h2>🧠 Pattern Match</h2>
           <p>Watch the pattern, then tap it back in the same order. It gets longer each round!</p>
@@ -2316,7 +2025,7 @@
     if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
     const statusEl = document.getElementById('pattern-status');
     if (statusEl) statusEl.textContent = `Game over — ${finalScore} round${finalScore === 1 ? '' : 's'}!`;
-    await finishGameRound(finalScore, startedAt, '🧠 Pattern Match', 'pattern');
+    await finishGameRound(finalScore, startedAt, '🧠 Pattern Match');
   }
 
   // ---------------------------------------------------------------------
@@ -2330,8 +2039,6 @@
         <div class="modal-sheet">
           <h2>Settings</h2>
           <p>Signed in as ${escapeHtml(currentUser ? currentUser.email : '')}</p>
-          <button class="ghost-btn" id="show-tips-btn">💡 Tips for Supporting Your Kid</button>
-          <button class="ghost-btn" id="enable-reminders-btn">🔔 Enable Reminders</button>
           <button class="ghost-btn" id="dev-toggle-tier-btn">🧪 Dev: Toggle Premium (testing only)</button>
           <button class="ghost-btn danger" id="sign-out-btn">Sign Out</button>
           <button class="link-btn" id="close-settings-btn">Close</button>
@@ -2340,13 +2047,6 @@
     `;
     document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
     document.getElementById('close-settings-btn').addEventListener('click', closeModal);
-    document.getElementById('show-tips-btn').addEventListener('click', () => { closeModal(); openOnboardingTipsModal(); });
-    document.getElementById('enable-reminders-btn').addEventListener('click', async () => {
-      if (!window.Notification) { alert('Notifications are not supported in this browser.'); return; }
-      const perm = await Notification.requestPermission();
-      if (perm === 'granted') showNudgeToast('🔔 Reminders enabled!');
-      else if (perm === 'denied') alert('Notifications were blocked. You can still see in-app reminders while the app is open.');
-    });
     document.getElementById('dev-toggle-tier-btn').addEventListener('click', async () => {
       familyData.tier = familyData.tier === 'premium' ? 'free' : 'premium';
       await saveFamily();
@@ -2600,196 +2300,6 @@
     void hypeToast.offsetWidth;
     hypeToast.classList.add('show');
     hypeTimer = setTimeout(() => hypeToast.classList.remove('show'), big ? 3200 : 2000);
-  }
-
-  const nudgeToastEl = document.getElementById('nudge-toast');
-  let nudgeTimer = null;
-  function showNudgeToast(text) {
-    clearTimeout(nudgeTimer);
-    nudgeToastEl.textContent = text;
-    nudgeToastEl.classList.remove('show');
-    void nudgeToastEl.offsetWidth;
-    nudgeToastEl.classList.add('show');
-    nudgeTimer = setTimeout(() => nudgeToastEl.classList.remove('show'), 4000);
-  }
-
-  // ---------------------------------------------------------------------
-  // Task-time nudges + a once-a-day parent awareness banner. There's no
-  // background push here (that needs Firebase Cloud Messaging + a service
-  // worker, a bigger separate build) — this only fires while the app is
-  // open on-screen, backed by a Web Notification when permission is
-  // granted so it can still surface if the tab is just backgrounded.
-  // ---------------------------------------------------------------------
-  const nudgedTaskIds = new Set();
-
-  function sendNudge(text) {
-    showNudgeToast(text);
-    playTaskChime();
-    if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
-    if (window.Notification && Notification.permission === 'granted') {
-      try { new Notification('PowerUp Kids', { body: text }); } catch (e) { /* ignore */ }
-    }
-  }
-
-  async function showParentBanner(child, missingCount) {
-    const log = todaysLog();
-    log.parentBannerShown = true;
-    await saveChildLogs();
-    const banner = document.getElementById('parent-nudge-banner');
-    const textEl = document.getElementById('parent-nudge-text');
-    if (!banner || !textEl) return;
-    textEl.textContent = `⏰ Heads up — ${child.name} has ${missingCount} mission${missingCount === 1 ? '' : 's'} still open today (routine window has ended).`;
-    banner.classList.remove('hidden');
-  }
-
-  document.getElementById('parent-nudge-dismiss').addEventListener('click', () => {
-    document.getElementById('parent-nudge-banner').classList.add('hidden');
-  });
-
-  function runPeriodicChecks() {
-    if (!familyData || !activeChildId || els.appScreen.classList.contains('hidden')) return;
-    const child = activeChild();
-    if (!child || !child.tasks || !child.tasks.length) return;
-    const log = todaysLog();
-    const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-
-    if (sessionRole === 'kid') {
-      child.tasks.forEach((t) => {
-        if (log.tasksEverDone && log.tasksEverDone[t.id]) return;
-        if (nudgedTaskIds.has(t.id)) return;
-        if (timeToMinutes(t.time) <= nowMin) {
-          nudgedTaskIds.add(t.id);
-          sendNudge(`⏰ Time for: ${t.emoji || '⭐'} ${t.title}!`);
-        }
-      });
-    }
-
-    const lastTaskTime = child.tasks.reduce((max, t) => Math.max(max, timeToMinutes(t.time)), 0);
-    const pastRoutineEnd = lastTaskTime > 0 && nowMin >= lastTaskTime;
-    const everDoneCount = Object.keys(log.tasksEverDone || {}).length;
-    const allDoneEver = everDoneCount === child.tasks.length;
-
-    if (pastRoutineEnd && !allDoneEver) maybeShowDailyCheckin();
-
-    if (sessionRole === 'parent' && pastRoutineEnd && !allDoneEver && !log.parentBannerShown) {
-      showParentBanner(child, child.tasks.length - everDoneCount);
-    }
-  }
-
-  function startPeriodicChecks() {
-    runPeriodicChecks();
-    setInterval(runPeriodicChecks, 30000);
-  }
-  startPeriodicChecks();
-
-  // ---------------------------------------------------------------------
-  // End-of-day check-in — a quick, kid-friendly self-reflection once the
-  // day's missions wrap up (or the routine's time window has passed).
-  // Feeds straight into the Progress Report for the parent to share with
-  // an OT, paediatrician, or psychologist. Premium only; a kid can always
-  // skip it, and it only asks once per day.
-  // ---------------------------------------------------------------------
-  const MOOD_SCALE = ['😞', '😕', '😐', '🙂', '😄'];
-  const CHECKIN_TAGS = ['😴 Tired', '📢 Loud/Busy', '🔄 Big changes', '🎉 Fun day', '👍 Easy day', '😤 Hard day', '💪 Proud of myself', '🤝 Needed help'];
-
-  function maybeShowDailyCheckin() {
-    if (!isPremium()) return;
-    const log = todaysLog();
-    if (log.checkin || log.checkinDismissed) return;
-    setTimeout(() => {
-      const freshLog = todaysLog();
-      if (freshLog.checkin || freshLog.checkinDismissed) return;
-      if (!document.getElementById('app-screen') || els.appScreen.classList.contains('hidden')) return;
-      openDailyCheckinModal();
-    }, 1500);
-  }
-
-  function openDailyCheckinModal() {
-    const child = activeChild();
-    let mood = 0, focus = 0, energy = 0;
-    const selectedTags = new Set();
-    const root = document.getElementById('modal-root');
-    root.innerHTML = `
-      <div class="modal-overlay" id="modal-overlay">
-        <div class="modal-sheet" style="align-items:center; text-align:center;">
-          <h2>How was today, ${escapeHtml(child.name)}? 🌟</h2>
-          <p>Just for you — there's no wrong answer!</p>
-          <label class="field-label">How did today feel overall?</label>
-          <div class="checkin-scale" id="checkin-mood"></div>
-          <label class="field-label" style="margin-top:10px;">How well could you focus?</label>
-          <div class="checkin-scale" id="checkin-focus"></div>
-          <label class="field-label" style="margin-top:10px;">How was your energy?</label>
-          <div class="checkin-scale" id="checkin-energy"></div>
-          <label class="field-label" style="margin-top:10px;">Anything that stood out? (tap any that fit)</label>
-          <div class="checkin-tags" id="checkin-tags"></div>
-          <button class="primary-btn" id="save-checkin-btn" style="width:100%; margin-top:12px;">Done!</button>
-          <button class="link-btn" id="skip-checkin-btn">Skip for today</button>
-        </div>
-      </div>
-    `;
-    const moodWrap = document.getElementById('checkin-mood');
-    MOOD_SCALE.forEach((e, i) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'checkin-scale-btn';
-      btn.textContent = e;
-      btn.addEventListener('click', () => {
-        mood = i + 1;
-        moodWrap.querySelectorAll('.checkin-scale-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-      });
-      moodWrap.appendChild(btn);
-    });
-    const buildStarScale = (wrapId, setter) => {
-      const wrap = document.getElementById(wrapId);
-      for (let i = 1; i <= 5; i++) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'checkin-scale-btn';
-        btn.textContent = '⭐';
-        btn.addEventListener('click', () => {
-          setter(i);
-          wrap.querySelectorAll('.checkin-scale-btn').forEach((b, idx) => b.classList.toggle('selected', idx < i));
-        });
-        wrap.appendChild(btn);
-      }
-    };
-    buildStarScale('checkin-focus', (v) => { focus = v; });
-    buildStarScale('checkin-energy', (v) => { energy = v; });
-
-    const tagsWrap = document.getElementById('checkin-tags');
-    CHECKIN_TAGS.forEach((tag) => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'checkin-tag';
-      chip.textContent = tag;
-      chip.addEventListener('click', () => {
-        if (selectedTags.has(tag)) { selectedTags.delete(tag); chip.classList.remove('selected'); }
-        else { selectedTags.add(tag); chip.classList.add('selected'); }
-      });
-      tagsWrap.appendChild(chip);
-    });
-
-    document.getElementById('skip-checkin-btn').addEventListener('click', async () => {
-      const log = todaysLog();
-      log.checkinDismissed = true;
-      await saveChildLogs();
-      closeModal();
-    });
-    document.getElementById('save-checkin-btn').addEventListener('click', async () => {
-      const log = todaysLog();
-      log.checkin = {
-        mood: mood || null,
-        focus: focus || null,
-        energy: energy || null,
-        tags: Array.from(selectedTags),
-        savedAt: Date.now()
-      };
-      await saveChildLogs();
-      closeModal();
-      showNudgeToast('Thanks for sharing! 💙');
-    });
   }
 </script>
 </body>

@@ -2,6 +2,12 @@
 
 `app.html` is now wired to the new **powerup-kids-app** project (separate from `koda-routine`, which stays untouched running your son's actual daily app). Same three steps as before, just in the new project this time.
 
+## ⚠️ One new step if you already set this up before
+
+The new **Leaderboard** feature needs one more block added to your security rules (see the updated rules in step 3 below — it's the new `match /leaderboard/{childId}` section near the bottom). Without it, the Leaderboard will just quietly show "no scores yet" for everyone instead of erroring, but it won't actually work until you republish the rules. Everything else (missions, feats, points, games) works exactly as before — this only affects the trophy leaderboard.
+
+**To update:** go to **Firestore Database → Rules**, select all the existing text, delete it, and paste in the full rules block from step 3 below (it includes everything from before, plus the new leaderboard section), then click **Publish**.
+
 ## 1. Enable Firestore Database
 
 1. Go to https://console.firebase.google.com and open the **powerup-kids-app** project.
@@ -64,6 +70,24 @@ service cloud.firestore {
         request.auth.uid == deviceId || request.auth.uid == resource.data.familyId
       );
       allow update: if false;
+    }
+
+    // NEW: leaderboard high scores. Any signed-in member of the family
+    // (parent, or any of their linked kids) can READ every kid's best
+    // scores so the leaderboard can rank siblings — but a kid device can
+    // only ever WRITE its own child's entry, same as childLogs above.
+    match /families/{familyId}/leaderboard/{childId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == familyId ||
+        (exists(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)).data.familyId == familyId)
+      );
+      allow write: if request.auth != null && (
+        request.auth.uid == familyId ||
+        (exists(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)).data.familyId == familyId &&
+         get(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)).data.childId == childId)
+      );
     }
 
   }
