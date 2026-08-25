@@ -1,0 +1,9 @@
+node_modules/
+package-lock.json
+*.log
+
+# Test-only artifacts (generated during testing, always deleted before
+# commit, but ignored too as a belt-and-suspenders safety net)
+product/firebase-stub.mjs
+product/app.test.html
+product/test-batch*.mjs

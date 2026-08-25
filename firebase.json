@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "public": "product",
+    "ignore": [
+      "**/*.md",
+      "**/.*",
+      "**/firebase-stub.mjs",
+      "**/app.test.html",
+      "**/test-batch*.mjs",
+      "**/app.html"
+    ]
+  }
+}
