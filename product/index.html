@@ -147,9 +147,12 @@
   .bonus-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .bonus-badge { background: #312e81; border: 2px solid #4f46e5; border-radius: 10px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; transition: all 0.2s; }
   .bonus-badge.active { background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); border-color: #fef08a; box-shadow: 0 0 12px rgba(245,158,11,0.5); transform: scale(1.02); }
+  .bonus-badge.pending { background: #422006; border-color: #f59e0b; border-style: dashed; animation: pendingPulse 1.6s ease-in-out infinite; }
+  @keyframes pendingPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
   .bonus-icon { font-size: 20px; }
   .bonus-name { font-size: 12px; font-weight: 800; color: #e0e7ff; line-height: 1.2; }
   .bonus-badge.active .bonus-name { color: #000; font-weight: 900; }
+  .bonus-badge.pending .bonus-name { color: #fde68a; }
   .bonus-progress-bg { background: #312e81; height: 8px; border-radius: 6px; overflow: hidden; }
   .bonus-progress-fill { background: linear-gradient(90deg, #f59e0b, #facc15); height: 100%; width: 0%; transition: width 0.3s ease; }
   .locked-panel {
@@ -444,6 +447,9 @@
       <span>👉</span>
       <span id="now-banner-text">Do this now: ...</span>
     </div>
+
+    <!-- Feats a kid has tapped but a parent hasn't confirmed yet -->
+    <div class="card hidden parent-only" id="pending-feats-wrap" style="border-color:#f59e0b; margin-bottom:2px;"></div>
 
     <!-- Bonus feats: shown for premium -->
     <div class="bonus-section hidden" id="bonus-section">
@@ -1119,16 +1125,72 @@
     grid.innerHTML = '';
     let earned = 0;
     child.feats.forEach((feat) => {
-      const active = !!log.feats[feat.id];
-      if (active) earned++;
+      const confirmed = !!(log.featsEverDone && log.featsEverDone[feat.id]);
+      const pending = !confirmed && !!(log.featsPending && log.featsPending[feat.id]);
+      if (confirmed) earned++;
       const badge = document.createElement('div');
-      badge.className = 'bonus-badge' + (active ? ' active' : '');
-      badge.innerHTML = `<div class="bonus-icon">${feat.icon}</div><div class="bonus-name">${escapeHtml(feat.name)}</div>`;
+      badge.className = 'bonus-badge' + (confirmed ? ' active' : '') + (pending ? ' pending' : '');
+      const nameHtml = pending ? `${escapeHtml(feat.name)} <span style="font-size:10px;">⏳ waiting on a grown-up!</span>` : escapeHtml(feat.name);
+      badge.innerHTML = `<div class="bonus-icon">${feat.icon}</div><div class="bonus-name">${nameHtml}</div>`;
       badge.addEventListener('click', (evt) => toggleFeat(feat.id, evt));
       grid.appendChild(badge);
     });
     document.getElementById('feat-count').textContent = `${earned} / ${child.feats.length}`;
     document.getElementById('feat-bar').style.width = child.feats.length ? `${Math.round((earned / child.feats.length) * 100)}%` : '0%';
+    renderPendingFeats();
+  }
+
+  // Parent-only queue of feats a kid has tapped but hasn't been confirmed
+  // yet — a feat only awards points/level EXP once a parent taps ✅ here,
+  // so a kid tapping the button on its own gives them the fun of tapping
+  // it without free points. Standard missions stay instant-reward on
+  // purpose — feats are the "bonus" ones worth double-checking.
+  function renderPendingFeats() {
+    const wrap = document.getElementById('pending-feats-wrap');
+    if (!wrap) return;
+    if (!isPremium()) { wrap.classList.add('hidden'); wrap.innerHTML = ''; return; }
+    const child = activeChild();
+    const log = todaysLog();
+    const pendingIds = Object.keys(log.featsPending || {}).filter(id => !(log.featsEverDone && log.featsEverDone[id]));
+    if (!pendingIds.length) { wrap.classList.add('hidden'); wrap.innerHTML = ''; return; }
+    wrap.classList.remove('hidden');
+    wrap.innerHTML = `
+      <div style="font-size:12.5px; font-weight:800; color:#fde68a; margin-bottom:8px;">⏳ ${escapeHtml(child.name)} says they did these — confirm to award the bonus points:</div>
+      <div class="builder-list">
+        ${pendingIds.map((fid) => {
+          const feat = child.feats.find(f => f.id === fid);
+          if (!feat) return '';
+          return `<div class="builder-row" style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:20px;">${feat.icon}</span>
+            <span style="flex:1; font-weight:700;">${escapeHtml(feat.name)}</span>
+            <button class="ghost-btn" data-approve="${feat.id}" style="padding:6px 12px; font-size:14px;">✅</button>
+            <button class="ghost-btn" data-deny="${feat.id}" style="padding:6px 12px; font-size:14px;">❌</button>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+    wrap.querySelectorAll('[data-approve]').forEach(btn => btn.addEventListener('click', () => reviewFeat(btn.dataset.approve, true)));
+    wrap.querySelectorAll('[data-deny]').forEach(btn => btn.addEventListener('click', () => reviewFeat(btn.dataset.deny, false)));
+  }
+
+  async function reviewFeat(featId, approve) {
+    const log = todaysLog();
+    if (!log.featsPending || !log.featsPending[featId]) return;
+    delete log.featsPending[featId];
+    const feat = activeChild().feats.find(f => f.id === featId);
+    if (approve) {
+      if (!log.featsEverDone) log.featsEverDone = {};
+      log.featsEverDone[featId] = true;
+      log.feats[featId] = true;
+      burstFullScreen(60);
+      showHype(`🏆 Confirmed! ${feat ? feat.name + ' — ' : ''}+10 bonus points!`, false);
+      playFeatChime();
+      addPoints(10);
+    } else {
+      log.feats[featId] = false;
+    }
+    renderFeats();
+    await saveChildLogs();
   }
 
   function escapeHtml(str) {
@@ -1197,6 +1259,13 @@
     await saveChildLogs();
   }
 
+  // Feats are the "bonus power" ones, so they get one extra step before
+  // they pay out: tapping a feat doesn't award points on the spot — it
+  // just flags it as pending until a parent confirms it actually happened
+  // (see reviewFeat/renderPendingFeats above). This stops a kid from just
+  // farming bonus points by tapping the feat grid with nothing behind it,
+  // while standard missions stay instant-reward so a kid still gets that
+  // immediate hit of joy for the everyday stuff.
   async function toggleFeat(featId, evt) {
     if (!isPremium()) return;
     const key = todayKey();
@@ -1205,14 +1274,21 @@
     if (!childLogsData.logs[key]) childLogsData.logs[key] = { tasks: {}, feats: {} };
     const log = childLogsData.logs[key];
     if (!log.featsEverDone) log.featsEverDone = {};
-    const wasActive = !!log.feats[featId];
-    log.feats[featId] = !wasActive;
-    if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
-    if (!wasActive && !log.featsEverDone[featId]) {
-      log.featsEverDone[featId] = true;
-      burstFromEvent(evt, 20, 2.4);
-      playFeatChime();
-      addPoints(10);
+    if (!log.featsPending) log.featsPending = {};
+
+    if (log.featsEverDone[featId]) return; // already confirmed today, nothing to do
+
+    if (log.featsPending[featId]) {
+      // tapping it again while it's waiting just cancels the request
+      delete log.featsPending[featId];
+      log.feats[featId] = false;
+      if (navigator.vibrate) navigator.vibrate(20);
+    } else {
+      log.featsPending[featId] = Date.now();
+      log.feats[featId] = true;
+      if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+      burstFromEvent(evt, 14, 1.6);
+      showHype('⏳ Nice! Ask a grown-up to confirm it to get your bonus points.', false);
     }
     renderFeats();
     await saveChildLogs();
@@ -2502,11 +2578,11 @@
       const patternRanked = [...entries].sort((a, b) => b.bestPattern - a.bestPattern);
       const smashRanked = [...entries].sort((a, b) => b.bestStarSmash - a.bestStarSmash);
       bodyHtml = `
-        <label class="field-label">⚡ Power Pop — most pops in 20s</label>
+        <label class="field-label">⚡ Power Pop — most pops in 60s</label>
         ${renderLeaderboardRows(powerPopRanked, 'bestPowerPop', 'pops', 'name')}
         <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
         ${renderLeaderboardRows(patternRanked, 'bestPattern', 'rounds', 'name')}
-        ${smashRanked.some(e => e.bestStarSmash > 0) ? `<label class="field-label" style="margin-top:6px;">🕹️ Star Smash — most smashes in 20s</label>${renderLeaderboardRows(smashRanked, 'bestStarSmash', 'smashes', 'name')}` : ''}
+        ${smashRanked.some(e => e.bestStarSmash > 0) ? `<label class="field-label" style="margin-top:6px;">🕹️ Star Smash — most smashes in 60s</label>${renderLeaderboardRows(smashRanked, 'bestStarSmash', 'smashes', 'name')}` : ''}
       `;
     } else {
       let levelEntries = [], popEntries = [], patternEntries = [], smashEntries = [];
@@ -2530,11 +2606,11 @@
         <p style="font-size:12px; color:#94a3b8; margin-top:-4px;">Kids worldwide, shown only by nickname — never real names.</p>
         <label class="field-label">⭐ Top Levels</label>
         ${renderLeaderboardRows(levelEntries, 'level', '', 'nickname')}
-        <label class="field-label" style="margin-top:6px;">⚡ Power Pop — most pops in 20s</label>
+        <label class="field-label" style="margin-top:6px;">⚡ Power Pop — most pops in 60s</label>
         ${renderLeaderboardRows(popEntries, 'bestPowerPop', 'pops', 'nickname')}
         <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
         ${renderLeaderboardRows(patternEntries, 'bestPattern', 'rounds', 'nickname')}
-        <label class="field-label" style="margin-top:6px;">🕹️ Star Smash — most smashes in 20s</label>
+        <label class="field-label" style="margin-top:6px;">🕹️ Star Smash — most smashes in 60s</label>
         ${renderLeaderboardRows(smashEntries, 'bestStarSmash', 'smashes', 'nickname')}
         ${optInNote}
       `;
@@ -2617,7 +2693,7 @@
   // --- Power Pop: 20-second reflex bubble-tap, gets faster as it goes ---
   let ppState = null;
   const GAME_EMOJIS = ['⭐', '⚡', '🔥', '💎', '🎯'];
-  const POWER_POP_SECONDS = 20;
+  const POWER_POP_SECONDS = 60;
 
   function openPowerPopModal() {
     const root = document.getElementById('modal-root');
@@ -2625,9 +2701,9 @@
       <div class="modal-overlay centered" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
           <h2>⚡ Power Pop</h2>
-          <p>Tap the bubbles before they vanish — they get faster as you go! 20 seconds, go!</p>
+          <p>Tap the bubbles before they vanish — they get faster the longer you go! 60 seconds, go!</p>
           <div class="game-hud" style="width:100%;">
-            <span>⏱️ <span id="game-timer">20</span>s</span>
+            <span>⏱️ <span id="game-timer">${POWER_POP_SECONDS}</span>s</span>
             <span class="game-score">⭐ <span id="game-score">0</span></span>
           </div>
           <div class="game-area" id="game-area"></div>
@@ -2669,7 +2745,7 @@
   function scheduleNextBubble(area) {
     if (!ppState || !ppState.running) return;
     const elapsedFrac = 1 - (ppState.timeLeft / POWER_POP_SECONDS);
-    const spawnDelay = Math.max(320, 750 - elapsedFrac * 400); // ramps 750ms -> 320ms
+    const spawnDelay = Math.max(200, 750 - elapsedFrac * 550); // ramps 750ms -> 200ms over the full 60s, so it keeps getting harder rather than plateauing early
     ppState.spawnTimeout = setTimeout(() => {
       spawnBubble(area);
       scheduleNextBubble(area);
@@ -2679,7 +2755,7 @@
   function spawnBubble(area) {
     if (!ppState || !ppState.running || !area) return;
     const elapsedFrac = 1 - (ppState.timeLeft / POWER_POP_SECONDS);
-    const lifetime = Math.max(600, 1100 - elapsedFrac * 500); // ramps 1100ms -> 600ms
+    const lifetime = Math.max(420, 1100 - elapsedFrac * 680); // ramps 1100ms -> 420ms over the full 60s
     const rect = area.getBoundingClientRect();
     const size = 46;
     const x = Math.random() * Math.max(0, rect.width - size);
@@ -2837,7 +2913,7 @@
   // of 9 holes for a shrinking window; tap it before it vanishes. Every
   // 5-in-a-row streak earns a small combo bonus. ---
   let ssState = null;
-  const STAR_SMASH_SECONDS = 20;
+  const STAR_SMASH_SECONDS = 60;
   const STAR_SMASH_HOLES = 9;
 
   function openStarSmashModal() {
@@ -2846,7 +2922,7 @@
       <div class="modal-overlay centered" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
           <h2>🕹️ Star Smash</h2>
-          <p>Smash the star before it disappears! It gets faster the longer you go. 20 seconds — go!</p>
+          <p>Smash the star before it disappears! It gets faster the longer you go. 60 seconds — go!</p>
           <div class="game-hud" style="width:100%;">
             <span>⏱️ <span id="game-timer">${STAR_SMASH_SECONDS}</span>s</span>
             <span class="game-score">⭐ <span id="game-score">0</span></span>
@@ -2896,14 +2972,14 @@
   function scheduleNextMole() {
     if (!ssState || !ssState.running) return;
     const elapsedFrac = 1 - (ssState.timeLeft / STAR_SMASH_SECONDS);
-    const gapDelay = Math.max(220, 550 - elapsedFrac * 300); // gap before next mole shrinks over the round
+    const gapDelay = Math.max(180, 550 - elapsedFrac * 370); // gap before next mole keeps shrinking over the full 60s
     ssState.moleTimeout = setTimeout(() => popMole(), gapDelay);
   }
 
   function popMole() {
     if (!ssState || !ssState.running) return;
     const elapsedFrac = 1 - (ssState.timeLeft / STAR_SMASH_SECONDS);
-    const upTime = Math.max(450, 950 - elapsedFrac * 450); // ramps 950ms -> 450ms
+    const upTime = Math.max(380, 950 - elapsedFrac * 570); // ramps 950ms -> 380ms over the full 60s, so a sharp kid keeps getting real challenge, not a plateau
     const holes = document.querySelectorAll('.smash-hole');
     if (!holes.length) return;
     const idx = Math.floor(Math.random() * holes.length);
