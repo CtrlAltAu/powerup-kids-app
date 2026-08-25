@@ -269,6 +269,30 @@
   }
   .theme-opt .theme-emoji { font-size: 26px; }
   .theme-opt.selected { border-color: #6366f1; background: #312e81; }
+
+  /* ---------- Level chip ---------- */
+  .level-chip {
+    display: inline-flex; align-items: center; gap: 4px; background: rgba(15,23,42,0.35);
+    border-radius: 999px; padding: 3px 9px 3px 7px; font-size: 11px; font-weight: 800; color: #fde68a;
+    margin-top: 2px; cursor: pointer;
+  }
+  .level-progress-bg { background: #334155; height: 6px; border-radius: 6px; overflow: hidden; margin-top: 6px; }
+  .level-progress-fill { background: linear-gradient(90deg, #f59e0b, #facc15); height: 100%; width: 0%; transition: width 0.3s ease; }
+
+  /* ---------- Mini-game ---------- */
+  .game-area {
+    position: relative; width: 100%; height: 260px; background: #0f172a;
+    border: 2px dashed #6366f1; border-radius: 14px; overflow: hidden; touch-action: none;
+  }
+  .game-bubble {
+    position: absolute; width: 46px; height: 46px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #818cf8, #4338ca);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    cursor: pointer; border: none; animation: bubbleIn 0.15s ease;
+  }
+  @keyframes bubbleIn { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .game-hud { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 800; color: #cbd5e1; }
+  .game-score { color: #facc15; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -316,10 +340,11 @@
         <span class="child-emoji-badge" id="child-emoji">🧑</span>
         <div style="min-width:0;">
           <h1 class="title" id="child-name-display">Loading…</h1>
-          <div class="subtitle">Complete the missions</div>
+          <div class="level-chip hidden" id="level-chip" title="Tap to see progress">⭐ Level 1</div>
         </div>
       </div>
       <div class="header-actions">
+        <button class="icon-btn hidden" id="game-btn" title="Mini-game">🎮</button>
         <button class="icon-btn parent-only" id="settings-btn" title="Settings">⚙️</button>
       </div>
     </div>
@@ -703,11 +728,48 @@
     document.getElementById('tier-banner-premium').classList.toggle('hidden', !isPremium());
     document.getElementById('bonus-section').classList.toggle('hidden', !isPremium());
     document.getElementById('feats-locked-panel').classList.toggle('hidden', isPremium());
+    document.getElementById('game-btn').classList.toggle('hidden', !isPremium());
 
     renderChildSwitcher();
     renderTasks();
     if (isPremium()) renderFeats();
     updateNowBanner();
+    updateLevelChip();
+  }
+
+  // ---------------------------------------------------------------------
+  // Power points & levels — a lightweight hidden game layer. Every
+  // completed mission/feat and every mini-game round earns points;
+  // points roll up into a level. Premium only, like the other
+  // celebration/game features.
+  // ---------------------------------------------------------------------
+  function getPoints() {
+    return (childLogsData && childLogsData.totalPoints) || 0;
+  }
+  function levelFor(points) { return Math.floor(points / 100) + 1; }
+
+  function addPoints(n) {
+    if (!isPremium()) return;
+    if (!childLogsData) childLogsData = { logs: {} };
+    const before = childLogsData.totalPoints || 0;
+    const after = before + n;
+    childLogsData.totalPoints = after;
+    if (levelFor(after) > levelFor(before)) {
+      setTimeout(() => {
+        burstFullScreen(140);
+        showHype(`🎉 LEVEL ${levelFor(after)} UNLOCKED! 🎉`, true);
+        playFanfare();
+      }, 900);
+    }
+    updateLevelChip();
+  }
+
+  function updateLevelChip() {
+    const chip = document.getElementById('level-chip');
+    if (!chip) return;
+    if (!isPremium()) { chip.classList.add('hidden'); return; }
+    chip.classList.remove('hidden');
+    chip.textContent = `⭐ Level ${levelFor(getPoints())}`;
   }
 
   function renderChildSwitcher() {
@@ -840,6 +902,7 @@
           showHype(randomFrom(pack.small), false);
           playTaskChime();
         }
+        addPoints(5);
       }
     }
     renderTasks();
@@ -855,7 +918,7 @@
     const wasActive = !!childLogsData.logs[key].feats[featId];
     childLogsData.logs[key].feats[featId] = !wasActive;
     if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
-    if (!wasActive) { burstFromEvent(evt, 20, 2.4); playFeatChime(); }
+    if (!wasActive) { burstFromEvent(evt, 20, 2.4); playFeatChime(); addPoints(10); }
     renderFeats();
     await saveChildLogs();
   }
@@ -1154,8 +1217,117 @@
   document.getElementById('upgrade-btn-2').addEventListener('click', () => openUpgradeModal('Epic Feats and celebration effects are a Premium feature.'));
 
   function closeModal() {
+    stopGame();
     document.getElementById('modal-root').innerHTML = '';
   }
+
+  // ---------------------------------------------------------------------
+  // Power Pop — a 20-second bubble-tap mini-game for break time. Anyone
+  // (parent or kid) can launch it from the header; Premium only.
+  // ---------------------------------------------------------------------
+  let gameState = null;
+  const GAME_EMOJIS = ['⭐', '⚡', '🔥', '💎', '🎯'];
+
+  function openGameModal() {
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet" style="align-items:center; text-align:center;">
+          <h2>⚡ Power Pop</h2>
+          <p>Tap the bubbles before they vanish — great for a quick break! 20 seconds, go!</p>
+          <div class="game-hud" style="width:100%;">
+            <span>⏱️ <span id="game-timer">20</span>s</span>
+            <span class="game-score">⭐ <span id="game-score">0</span></span>
+          </div>
+          <div class="game-area" id="game-area"></div>
+          <button class="primary-btn" id="game-start-btn" style="width:100%;">Start</button>
+          <button class="link-btn" id="close-game-btn">Close</button>
+        </div>
+      </div>
+    `;
+    const finishAndClose = async () => {
+      if (gameState && gameState.running) await endGame();
+      closeModal();
+    };
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') finishAndClose(); });
+    document.getElementById('close-game-btn').addEventListener('click', finishAndClose);
+    document.getElementById('game-start-btn').addEventListener('click', startGame);
+  }
+
+  function startGame() {
+    stopGame();
+    const startBtn = document.getElementById('game-start-btn');
+    startBtn.disabled = true;
+    startBtn.textContent = 'Playing…';
+    const area = document.getElementById('game-area');
+    area.innerHTML = '';
+    gameState = { score: 0, timeLeft: 20, running: true };
+    document.getElementById('game-score').textContent = '0';
+    document.getElementById('game-timer').textContent = '20';
+
+    gameState.spawnInterval = setInterval(() => spawnBubble(area), 750);
+    gameState.timerInterval = setInterval(() => {
+      if (!gameState) return;
+      gameState.timeLeft--;
+      const timerEl = document.getElementById('game-timer');
+      if (timerEl) timerEl.textContent = String(gameState.timeLeft);
+      if (gameState.timeLeft <= 0) endGame();
+    }, 1000);
+    spawnBubble(area);
+  }
+
+  function spawnBubble(area) {
+    if (!gameState || !gameState.running || !area) return;
+    const rect = area.getBoundingClientRect();
+    const size = 46;
+    const x = Math.random() * Math.max(0, rect.width - size);
+    const y = Math.random() * Math.max(0, rect.height - size);
+    const bubble = document.createElement('button');
+    bubble.className = 'game-bubble';
+    bubble.style.left = x + 'px';
+    bubble.style.top = y + 'px';
+    bubble.textContent = GAME_EMOJIS[Math.floor(Math.random() * GAME_EMOJIS.length)];
+    let popped = false;
+    const remove = () => { if (bubble.parentNode) bubble.parentNode.removeChild(bubble); };
+    bubble.addEventListener('click', () => {
+      if (popped || !gameState || !gameState.running) return;
+      popped = true;
+      gameState.score++;
+      const scoreEl = document.getElementById('game-score');
+      if (scoreEl) scoreEl.textContent = String(gameState.score);
+      if (navigator.vibrate) navigator.vibrate(20);
+      remove();
+    });
+    area.appendChild(bubble);
+    setTimeout(remove, 1100);
+  }
+
+  function stopGame() {
+    if (gameState) {
+      clearInterval(gameState.spawnInterval);
+      clearInterval(gameState.timerInterval);
+      gameState.running = false;
+    }
+  }
+
+  async function endGame() {
+    const finalScore = gameState ? gameState.score : 0;
+    stopGame();
+    const area = document.getElementById('game-area');
+    if (area) area.innerHTML = '';
+    const startBtn = document.getElementById('game-start-btn');
+    if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
+    burstFullScreen(60);
+    showHype(`⚡ Power Pop: +${finalScore} points!`, false);
+    playFeatChime();
+    addPoints(finalScore);
+    await saveChildLogs();
+  }
+
+  document.getElementById('game-btn').addEventListener('click', () => {
+    if (!isPremium()) { openUpgradeModal('The Power Pop mini-game is a Premium feature.'); return; }
+    openGameModal();
+  });
 
   // ---------------------------------------------------------------------
   // Settings modal: sign out + dev-only premium toggle (placeholder until
