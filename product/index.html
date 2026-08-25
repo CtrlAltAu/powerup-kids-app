@@ -391,6 +391,7 @@
     <button class="link-btn" id="auth-toggle-btn">Don't have an account? Sign up</button>
     <button class="link-btn" id="forgot-password-btn">Forgot your password?</button>
     <button class="link-btn" id="kid-mode-btn">🎈 Kid? Enter your code instead</button>
+    <button class="link-btn" id="about-app-btn">ℹ️ What is PowerUp Kids?</button>
   </div>
 
   <!-- ============ KID SIGN-IN SCREEN (no email, code only) ============ -->
@@ -497,6 +498,7 @@
     <div class="builder-back no-print" id="report-back">← Back to missions</div>
     <h2 id="report-title" style="margin:0; font-size:19px;">Progress Report</h2>
     <div class="report-range no-print" id="report-range"></div>
+    <div id="report-insights" class="no-print"></div>
     <div class="report-summary" id="report-summary"></div>
     <div class="card">
       <h2 style="font-size:14px; margin:0 0 8px;">Per-Mission Completion</h2>
@@ -511,7 +513,8 @@
       <p style="margin:0 0 8px; font-size:11.5px; color:#94a3b8;">Reported by the child themselves at the end of each day.</p>
       <table class="report-table" id="report-checkin-table"></table>
     </div>
-    <button class="ghost-btn no-print" id="report-print-btn">🖨️ Print / Save as PDF</button>
+    <button class="primary-btn no-print" id="report-pdf-btn">📄 Save as PDF</button>
+    <button class="ghost-btn no-print" id="report-print-btn">🖨️ Print</button>
   </div>
 
 </div>
@@ -653,6 +656,26 @@
   }
 
   document.getElementById('kid-mode-btn').addEventListener('click', () => showScreen('kid'));
+
+  function openAboutAppModal() {
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet">
+          <h2>🚀 What is PowerUp Kids?</h2>
+          <p>PowerUp Kids turns your kid's daily routine — getting dressed, homework, chores, bedtime — into a set of simple missions they check off themselves, with celebrations built in when they finish.</p>
+          <p>It's built with kids who have ADHD or autism in mind: predictable structure, visual missions instead of a wall of text, and positive reinforcement instead of nagging. The goal is to give you a clear picture of how your kid's day actually went, without you having to ask "did you do it?" fifty times.</p>
+          <p><strong>How it works:</strong> you set up your kid's daily missions here, then either hand them your device or generate a link code so they can check things off on their own device — no email needed for them. As they complete missions they earn points, level up, and (on Premium) unlock icons, mini-games, and a Progress Report you can print or export as a PDF to share with a teacher, OT, or paediatrician.</p>
+          <p><strong>Free vs. Premium:</strong> the free plan covers the core daily missions. Premium adds feats, celebrations, mini-games, the level system, and the Progress Report.</p>
+          <p><strong>Privacy:</strong> your family's data is private by default. The one public-facing feature, the worldwide leaderboard, is opt-in per kid and only ever shows a made-up nickname — never your child's real name.</p>
+          <button class="primary-btn" id="close-about-btn" style="width:100%;">Got it</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-about-btn').addEventListener('click', closeModal);
+  }
+  document.getElementById('about-app-btn').addEventListener('click', openAboutAppModal);
   document.getElementById('kid-back-btn').addEventListener('click', () => showScreen('auth'));
 
   let authMode = 'login'; // 'login' | 'signup'
@@ -922,13 +945,14 @@
   // Level curve: a kid earns points fast at first (so light/occasional
   // use still feels rewarded almost right away) and then each level
   // takes progressively more points, so a heavy daily user has a long
-  // runway of milestones ahead of them. Tuned so ~10 tasks/day for 5
-  // years (~91,250 points) lands around Level 1000, while a couple of
-  // tasks a day still climbs steadily for years. levelFor/pointsForLevel
-  // are exact inverses of each other (floor(C*p^E)+1 <-> ((L-1)/C)^(1/E)).
+  // runway of milestones ahead of them. Tuned to two anchors: a very
+  // active first day (~10 tasks) should land around Level 5-6, and
+  // ~10 tasks/day for a full year (~18,250 points) should land around
+  // Level 1000. levelFor/pointsForLevel are exact inverses of each other
+  // (floor(C*p^E)+1 <-> ((L-1)/C)^(1/E)).
   // ---------------------------------------------------------------------
-  const LEVEL_CURVE_COEF = 0.3374;
-  const LEVEL_CURVE_EXP = 0.7;
+  const LEVEL_CURVE_COEF = 0.1491;
+  const LEVEL_CURVE_EXP = 0.898;
   function levelFor(points) {
     const p = Math.max(0, points || 0);
     return Math.floor(LEVEL_CURVE_COEF * Math.pow(p, LEVEL_CURVE_EXP)) + 1;
@@ -1478,6 +1502,70 @@
     return { dailyRows, loggedDaysCount: loggedDays.length, overallRate, totalFeats, streak, perTask, wellbeing };
   }
 
+  // ---------------------------------------------------------------------
+  // Personalized daily + weekly tips, extending the onboarding tips
+  // (Dan Hughes PACE-adjacent research grounding aside — see the
+  // CDC/AFIRM-informed onboarding tips) into ongoing, data-driven advice
+  // based on how this specific kid is actually tracking, not generic
+  // copy. Always computed over a fixed 7-day window regardless of the
+  // report's selected range, so "this week" means the same thing no
+  // matter which range the parent is currently viewing.
+  // ---------------------------------------------------------------------
+  function computeInsights() {
+    const child = activeChild();
+    if (!child || !child.tasks || !child.tasks.length) return [];
+    const weekly = computeReportData(7);
+    const todayRow = weekly.dailyRows[0]; // dateKeys[0] is always today
+    const tips = [];
+
+    if (todayRow) {
+      if (!todayRow.hasLog || todayRow.tasksDone === 0) {
+        tips.push({ scope: 'Today', emoji: '🌅', text: `No missions logged yet today. A visual reminder, or checking in right after the first part of the routine (like breakfast), often helps kick the day off.` });
+      } else if (todayRow.tasksTotal > 0 && todayRow.tasksDone === todayRow.tasksTotal) {
+        tips.push({ scope: 'Today', emoji: '🎉', text: `Every mission done today! A specific compliment ("I noticed you got dressed all by yourself") tends to land better than a general "good job" and helps it stick.` });
+      } else {
+        const remaining = todayRow.tasksTotal - todayRow.tasksDone;
+        tips.push({ scope: 'Today', emoji: '⏳', text: `${todayRow.tasksDone}/${todayRow.tasksTotal} missions done so far — ${remaining} to go. A calm heads-up a few minutes before the next one can smooth the transition.` });
+      }
+    }
+
+    if (weekly.loggedDaysCount >= 2) {
+      if (weekly.streak >= 3) {
+        tips.push({ scope: 'This Week', emoji: '🔥', text: `${weekly.streak}-day streak of 100% missions! Keeping the routine at the same time each day is often a big part of what makes a streak like this possible.` });
+      } else if (weekly.overallRate < 50) {
+        tips.push({ scope: 'This Week', emoji: '💡', text: `Completion is at ${weekly.overallRate}% this week. Breaking the toughest mission into 2-3 smaller visual steps often helps more than adding a bigger reward.` });
+      } else if (weekly.overallRate >= 80) {
+        tips.push({ scope: 'This Week', emoji: '⭐', text: `${weekly.overallRate}% completion this week — really consistent. This could be a good week to introduce one new mission.` });
+      } else {
+        tips.push({ scope: 'This Week', emoji: '📈', text: `${weekly.overallRate}% completion this week. Consistent timing — same missions, same order, same time of day — tends to matter more than the missions themselves.` });
+      }
+
+      const strugglers = weekly.perTask.filter(t => t.total >= 3 && (t.done / t.total) < 0.4);
+      if (strugglers.length) {
+        const worst = strugglers.sort((a, b) => (a.done / a.total) - (b.done / b.total))[0];
+        tips.push({ scope: 'This Week', emoji: '🎯', text: `"${worst.title}" has been the toughest mission this week (${worst.done}/${worst.total}). Try breaking it into smaller steps, using a visual timer, or moving it to a different time of day.` });
+      }
+
+      if (weekly.wellbeing.avgMood != null && weekly.wellbeing.avgMood < 2.5) {
+        tips.push({ scope: 'This Week', emoji: '💙', text: `Self-reported mood has leaned lower this week. Might be worth a gentle check-in about whether the routine feels like too much right now.` });
+      }
+    }
+
+    return tips.slice(0, 3);
+  }
+
+  function renderReportInsights() {
+    const wrap = document.getElementById('report-insights');
+    if (!wrap) return;
+    const tips = computeInsights();
+    wrap.innerHTML = tips.map(t => `
+      <div class="card" style="border-left:4px solid #6366f1; margin-bottom:8px; padding:12px 14px;">
+        <div style="font-size:10.5px; font-weight:800; color:#a5b4fc; text-transform:uppercase; letter-spacing:0.03em;">${escapeHtml(t.scope)} tip</div>
+        <p style="margin:4px 0 0; font-size:13px;">${t.emoji} ${escapeHtml(t.text)}</p>
+      </div>
+    `).join('');
+  }
+
   function formatReportDate(key) {
     const [y, m, d] = key.split('-').map(Number);
     const dt = new Date(y, m - 1, d);
@@ -1485,9 +1573,11 @@
   }
 
   function renderReport(days) {
+    currentReportDays = days;
     const child = activeChild();
     document.getElementById('report-title').textContent = `${child.name}'s Progress Report`;
     const data = computeReportData(days);
+    renderReportInsights();
 
     const rangeWrap = document.getElementById('report-range');
     rangeWrap.innerHTML = '';
@@ -1533,6 +1623,7 @@
     }
   }
 
+  let currentReportDays = 14;
   function openReport() {
     renderReport(14);
     els.appScreen.classList.add('hidden');
@@ -1543,12 +1634,142 @@
     els.appScreen.classList.remove('hidden');
   }
 
+  // ---------------------------------------------------------------------
+  // Real PDF export — a proper downloadable .pdf a parent can attach to an
+  // email to an OT/paediatrician/psychologist, rather than relying on the
+  // browser's print dialog. jsPDF is loaded from a CDN on first use only
+  // (Premium feature, used occasionally) so it never slows down app startup.
+  // ---------------------------------------------------------------------
+  let jsPDFLoadPromise = null;
+  function ensureJsPDF() {
+    if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve();
+    if (jsPDFLoadPromise) return jsPDFLoadPromise;
+    jsPDFLoadPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = () => resolve();
+      s.onerror = () => { jsPDFLoadPromise = null; reject(new Error('offline')); };
+      document.head.appendChild(s);
+    });
+    return jsPDFLoadPromise;
+  }
+
+  function drawPDFTable(doc, startY, columns, rows, pageHeight) {
+    const marginX = 14;
+    let y = startY;
+    doc.setFontSize(9.5);
+    doc.setFont(undefined, 'bold');
+    let x = marginX;
+    columns.forEach((c) => { doc.text(c.title, x, y); x += c.width; });
+    y += 5;
+    doc.setDrawColor(200);
+    doc.line(marginX, y - 3.5, marginX + columns.reduce((s, c) => s + c.width, 0), y - 3.5);
+    doc.setFont(undefined, 'normal');
+    rows.forEach((row) => {
+      if (y > pageHeight - 18) { doc.addPage(); y = 18; }
+      x = marginX;
+      row.forEach((cell, i) => { doc.text(String(cell), x, y, { maxWidth: columns[i].width - 2 }); x += columns[i].width; });
+      y += 6;
+    });
+    return y;
+  }
+
+  async function exportReportPDF(days) {
+    const btn = document.getElementById('report-pdf-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Building PDF…'; }
+    try {
+      await ensureJsPDF();
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const child = activeChild();
+      const data = computeReportData(days);
+
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.text(`${child.name}'s Progress Report`, 14, 18);
+      doc.setFontSize(10.5);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Last ${days} days · Generated ${new Date().toLocaleDateString()} · PowerUp Kids`, 14, 25);
+
+      const moodStr = data.wellbeing.avgMood != null ? `${data.wellbeing.avgMood.toFixed(1)}/5` : '—';
+      const focusStr = data.wellbeing.avgFocus != null ? `${data.wellbeing.avgFocus.toFixed(1)}/5` : '—';
+      const energyStr = data.wellbeing.avgEnergy != null ? `${data.wellbeing.avgEnergy.toFixed(1)}/5` : '—';
+      const stats = [
+        ['Overall mission completion', `${data.overallRate}%`],
+        ['Current day streak (100% missions)', `${data.streak} day${data.streak === 1 ? '' : 's'}`],
+        ['Days with activity logged', `${data.loggedDaysCount}`],
+        ['Total feats earned', `${data.totalFeats}`],
+        ['Avg. self-reported mood', moodStr],
+        ['Avg. self-reported focus', focusStr],
+        ['Avg. self-reported energy', energyStr]
+      ];
+      let y = 35;
+      doc.setFontSize(11);
+      stats.forEach(([label, val]) => {
+        doc.setFont(undefined, 'normal');
+        doc.text(label, 14, y);
+        doc.setFont(undefined, 'bold');
+        doc.text(String(val), 130, y);
+        y += 6.5;
+      });
+
+      y += 4;
+      doc.setFontSize(13);
+      doc.setFont(undefined, 'bold');
+      doc.text('Mission Completion', 14, y);
+      y += 7;
+      y = drawPDFTable(doc, y,
+        [{ title: 'Mission', width: 100 }, { title: 'Completion', width: 60 }],
+        data.perTask.map(t => [`${t.emoji || ''} ${t.title}`, `${t.done}/${t.total} (${t.total ? Math.round((t.done / t.total) * 100) : 0}%)`]),
+        pageHeight);
+
+      y += 6;
+      if (y > pageHeight - 40) { doc.addPage(); y = 18; }
+      doc.setFontSize(13);
+      doc.setFont(undefined, 'bold');
+      doc.text('Daily Log', 14, y);
+      y += 7;
+      const loggedDays = data.dailyRows.filter(r => r.hasLog);
+      y = drawPDFTable(doc, y,
+        [{ title: 'Date', width: 45 }, { title: 'Missions', width: 45 }, { title: 'Feats', width: 45 }],
+        loggedDays.length ? loggedDays.map(r => [formatReportDate(r.date), `${r.tasksDone}/${r.tasksTotal}`, `${r.featsDone}`]) : [['No data yet.', '', '']],
+        pageHeight);
+
+      const checkinDays = data.dailyRows.filter(r => r.checkin);
+      if (checkinDays.length) {
+        y += 6;
+        if (y > pageHeight - 40) { doc.addPage(); y = 18; }
+        doc.setFontSize(13);
+        doc.setFont(undefined, 'bold');
+        doc.text('Self-Reported Wellbeing', 14, y);
+        y += 7;
+        y = drawPDFTable(doc, y,
+          [{ title: 'Date', width: 35 }, { title: 'Mood', width: 25 }, { title: 'Focus', width: 25 }, { title: 'Energy', width: 25 }, { title: 'Notes', width: 60 }],
+          checkinDays.map(r => [formatReportDate(r.date), r.checkin.mood ? `${r.checkin.mood}/5` : '—', r.checkin.focus ? `${r.checkin.focus}/5` : '—', r.checkin.energy ? `${r.checkin.energy}/5` : '—', (r.checkin.tags || []).join(', ') || '—']),
+          pageHeight);
+      }
+
+      doc.setFontSize(8.5);
+      doc.setFont(undefined, 'italic');
+      doc.text('Missions and feats are parent-defined daily routine items; mood/focus/energy are self-reported by the child. This is not a clinical assessment.', 14, pageHeight - 10, { maxWidth: 182 });
+
+      const fname = `${child.name.replace(/[^a-z0-9]+/gi, '-')}-progress-report-${todayKey()}.pdf`;
+      doc.save(fname);
+    } catch (e) {
+      alert('Could not build the PDF — check your internet connection and try again (this needs a one-time download the first time you use it).');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📄 Save as PDF'; }
+    }
+  }
+
   document.getElementById('report-btn').addEventListener('click', () => {
     if (!isPremium()) { openUpgradeModal('The Progress Report is a Premium feature.'); return; }
     openReport();
   });
   document.getElementById('report-back').addEventListener('click', closeReport);
   document.getElementById('report-print-btn').addEventListener('click', () => window.print());
+  document.getElementById('report-pdf-btn').addEventListener('click', () => exportReportPDF(currentReportDays));
 
   document.getElementById('level-chip').addEventListener('click', () => {
     if (!isPremium()) return;
@@ -1663,6 +1884,8 @@
     let customDraft = child.customHype
       ? { small: (child.customHype.small || []).slice(), big: (child.customHype.big || []).slice() }
       : { small: [], big: [] };
+    let selectedNickname = child.publicNickname || generateNickname();
+    let nicknameOptions = [selectedNickname, generateNickname(), generateNickname(), generateNickname(), generateNickname(), generateNickname()];
 
     function renderMain() {
       root.innerHTML = `
@@ -1684,8 +1907,9 @@
             </label>
             <div id="edit-nickname-wrap" style="${child.globalOptIn ? '' : 'display:none;'}">
               <label class="field-label" style="margin-top:8px;">Public nickname</label>
-              <input class="field-input" id="edit-kid-nickname" value="${escapeAttr(child.publicNickname || generateNickname())}" maxlength="24">
-              <button class="link-btn" id="shuffle-nickname-btn" type="button">🎲 Shuffle a new nickname</button>
+              <p style="margin:-6px 0 6px; font-size:11.5px;">Pick from these — there's no typing here on purpose, so nothing unmoderated ever goes public.</p>
+              <div class="theme-grid" id="nickname-options"></div>
+              <button class="link-btn" id="shuffle-nickname-btn" type="button">🎲 Show more options</button>
             </div>
             <button class="primary-btn" id="save-edit-kid-btn">Save Changes</button>
             <button class="link-btn" id="cancel-edit-kid-btn">Cancel</button>
@@ -1730,11 +1954,28 @@
 
       document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
       document.getElementById('cancel-edit-kid-btn').addEventListener('click', closeModal);
+      const nicknameGrid = document.getElementById('nickname-options');
+      function renderNicknameOptions() {
+        nicknameGrid.innerHTML = '';
+        nicknameOptions.forEach((nick) => {
+          const opt = document.createElement('div');
+          opt.className = 'theme-opt' + (nick === selectedNickname ? ' selected' : '');
+          opt.innerHTML = `<span class="theme-emoji">🏷️</span><span>${escapeHtml(nick)}</span>`;
+          opt.addEventListener('click', () => {
+            selectedNickname = nick;
+            nicknameGrid.querySelectorAll('.theme-opt').forEach(el => el.classList.remove('selected'));
+            opt.classList.add('selected');
+          });
+          nicknameGrid.appendChild(opt);
+        });
+      }
+      renderNicknameOptions();
       document.getElementById('edit-global-optin').addEventListener('change', (e) => {
         document.getElementById('edit-nickname-wrap').style.display = e.target.checked ? '' : 'none';
       });
       document.getElementById('shuffle-nickname-btn').addEventListener('click', () => {
-        document.getElementById('edit-kid-nickname').value = generateNickname();
+        nicknameOptions = [selectedNickname, generateNickname(), generateNickname(), generateNickname(), generateNickname(), generateNickname()];
+        renderNicknameOptions();
       });
       document.getElementById('save-edit-kid-btn').addEventListener('click', async () => {
         const name = document.getElementById('edit-kid-name').value.trim();
@@ -1744,8 +1985,7 @@
         if (selectedTheme === 'custom') child.customHype = customDraft;
         const wasOptedIn = child.globalOptIn;
         child.globalOptIn = document.getElementById('edit-global-optin').checked;
-        const nicknameInput = document.getElementById('edit-kid-nickname').value.trim();
-        child.publicNickname = nicknameInput || child.publicNickname || generateNickname();
+        child.publicNickname = selectedNickname;
         await saveFamily();
         if (child.globalOptIn) updateLeaderboard(null, 0); // push nickname/level even with no new game score
         else if (wasOptedIn && !child.globalOptIn) removeFromGlobalLeaderboard(child.id);
