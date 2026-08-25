@@ -1175,6 +1175,24 @@
     return (childLogsData && childLogsData.logs && childLogsData.logs[todayKey()]) || { tasks: {}, feats: {} };
   }
 
+  // Same as todaysLog(), except it actually creates+attaches today's entry
+  // in childLogsData.logs first, so the object returned is real and any
+  // mutation followed by saveChildLogs() actually persists. todaysLog()
+  // deliberately hands back a disposable stand-in object when no entry
+  // exists yet (fine for read-only rendering) — but a caller that's about
+  // to WRITE a flag (checkinDismissed, parentBannerShown, etc.) needs this
+  // instead, or the write silently vanishes and re-fires forever. This bit
+  // Daily Check-In hard: with no task touched yet today, todaysLog() kept
+  // returning a fresh throwaway object, so "Skip for today" never actually
+  // stuck and the modal kept popping back up every 30s.
+  function ensureTodaysLog() {
+    const key = todayKey();
+    if (!childLogsData) childLogsData = { logs: {} };
+    if (!childLogsData.logs) childLogsData.logs = {};
+    if (!childLogsData.logs[key]) childLogsData.logs[key] = { tasks: {}, feats: {} };
+    return childLogsData.logs[key];
+  }
+
   function renderTasks() {
     const child = activeChild();
     const log = todaysLog();
@@ -3548,7 +3566,7 @@
   }
 
   async function showParentBanner(child, missingCount) {
-    const log = todaysLog();
+    const log = ensureTodaysLog();
     log.parentBannerShown = true;
     await saveChildLogs();
     const banner = document.getElementById('parent-nudge-banner');
@@ -3711,13 +3729,13 @@
     });
 
     document.getElementById('skip-checkin-btn').addEventListener('click', async () => {
-      const log = todaysLog();
+      const log = ensureTodaysLog();
       log.checkinDismissed = true;
       await saveChildLogs();
       closeModal();
     });
     document.getElementById('save-checkin-btn').addEventListener('click', async () => {
-      const log = todaysLog();
+      const log = ensureTodaysLog();
       log.checkin = {
         mood: mood || null,
         focus: focus || null,
