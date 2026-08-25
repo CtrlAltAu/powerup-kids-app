@@ -22,6 +22,7 @@
   }
   .app-container { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 10px; position: relative; }
   .hidden { display: none !important; }
+  body.kid-mode .parent-only { display: none !important; }
   button { font-family: inherit; }
   input { font-family: inherit; }
 
@@ -82,6 +83,19 @@
     display: none;
   }
   .auth-error.show { display: block; }
+
+  /* ---------- Kid sign-in screen ---------- */
+  #kid-screen { display: flex; flex-direction: column; gap: 14px; justify-content: center; min-height: 90vh; }
+  .code-input {
+    width: 100%; background: #0f172a; border: 2px solid #334155; border-radius: 12px;
+    padding: 16px 12px; color: #f8fafc; font-size: 30px; font-weight: 900;
+    text-align: center; letter-spacing: 8px; text-transform: uppercase; margin-bottom: 12px;
+  }
+  .code-input:focus { outline: none; border-color: #6366f1; }
+  .code-display {
+    font-size: 34px; font-weight: 900; letter-spacing: 8px; text-align: center;
+    background: #0f172a; border: 2px dashed #6366f1; border-radius: 12px; padding: 16px 8px; color: #facc15;
+  }
 
   /* ---------- Header ---------- */
   .header-card {
@@ -270,6 +284,20 @@
       <button class="primary-btn" id="auth-submit-btn" style="width:100%">Log In</button>
     </div>
     <button class="link-btn" id="auth-toggle-btn">Don't have an account? Sign up</button>
+    <button class="link-btn" id="kid-mode-btn">🎈 Kid? Enter your code instead</button>
+  </div>
+
+  <!-- ============ KID SIGN-IN SCREEN (no email, code only) ============ -->
+  <div id="kid-screen" class="hidden">
+    <div class="auth-logo">🎮</div>
+    <h1 class="auth-title">Enter Your Code</h1>
+    <p class="auth-subtitle">Ask your parent for your mission code.</p>
+    <div class="card">
+      <div class="auth-error" id="kid-error"></div>
+      <input class="code-input" id="kid-code-input" maxlength="6" placeholder="ABC123" autocomplete="off" autocapitalize="characters">
+      <button class="primary-btn" id="kid-submit-btn" style="width:100%">Let's Go! 🚀</button>
+    </div>
+    <button class="link-btn" id="kid-back-btn">← Back</button>
   </div>
 
   <!-- ============ MAIN APP ============ -->
@@ -284,17 +312,17 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="icon-btn" id="settings-btn" title="Settings">⚙️</button>
+        <button class="icon-btn parent-only" id="settings-btn" title="Settings">⚙️</button>
       </div>
     </div>
 
     <div class="child-switcher" id="child-switcher"></div>
 
-    <div class="tier-banner free hidden" id="tier-banner-free">
+    <div class="tier-banner free hidden parent-only" id="tier-banner-free">
       <span>🔒 Free plan — basic missions only</span>
       <button class="upgrade-chip" id="upgrade-btn-1">Upgrade</button>
     </div>
-    <div class="tier-banner premium hidden" id="tier-banner-premium">
+    <div class="tier-banner premium hidden parent-only" id="tier-banner-premium">
       <span>⭐ Premium — full PowerUp experience unlocked</span>
     </div>
 
@@ -311,11 +339,11 @@
       </div>
       <div class="bonus-grid" id="bonus-grid"></div>
       <div class="bonus-progress-bg"><div class="bonus-progress-fill" id="feat-bar"></div></div>
-      <button class="ghost-btn" id="edit-feats-btn" style="margin-top:2px;">✏️ Edit Feats</button>
+      <button class="ghost-btn parent-only" id="edit-feats-btn" style="margin-top:2px;">✏️ Edit Feats</button>
     </div>
 
     <!-- Locked feats panel for free tier -->
-    <div class="locked-panel hidden" id="feats-locked-panel">
+    <div class="locked-panel hidden parent-only" id="feats-locked-panel">
       <span class="lock-emoji">🔒</span>
       <p><strong>Epic Feats</strong> and celebration effects are a Premium feature.</p>
       <button class="upgrade-chip" id="upgrade-btn-2">Unlock Premium</button>
@@ -328,8 +356,9 @@
 
     <div class="task-list" id="task-list"></div>
 
-    <button class="ghost-btn" id="edit-tasks-btn">✏️ Edit Missions</button>
-    <button class="ghost-btn" id="reset-btn">🔄 Reset Checklist &amp; Feats for New Day</button>
+    <button class="ghost-btn parent-only" id="edit-tasks-btn">✏️ Edit Missions</button>
+    <button class="ghost-btn parent-only" id="link-code-btn">🔗 Get Kid's Link Code</button>
+    <button class="ghost-btn parent-only" id="reset-btn">🔄 Reset Checklist &amp; Feats for New Day</button>
   </div>
 
   <!-- ============ BUILDER SCREEN (tasks or feats) ============ -->
@@ -353,10 +382,10 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
   import {
     getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-    onAuthStateChanged, signOut
+    signInAnonymously, onAuthStateChanged, signOut
   } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
   import {
-    getFirestore, doc, getDoc, setDoc, onSnapshot
+    getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -377,6 +406,14 @@
   // ---------------------------------------------------------------------
   function makeId() {
     return 'id-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+
+  // 6-char link code, no ambiguous characters (no 0/O, 1/I/L).
+  function makeLinkCode() {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    let s = '';
+    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
   }
 
   function defaultTasks() {
@@ -408,7 +445,7 @@
       emoji: '🧑',
       tasks: defaultTasks(),
       feats: defaultFeats(),
-      logs: {}
+      linkCode: null
     };
   }
 
@@ -420,15 +457,21 @@
   // ---------------------------------------------------------------------
   // App state
   // ---------------------------------------------------------------------
-  let familyData = null;   // the whole Firestore doc for this family
+  let familyData = null;   // the family doc: routine data (children, their tasks/feats, tier)
   let familyRef = null;
   let activeChildId = null;
   let currentUser = null;
   let builderMode = null;  // 'tasks' | 'feats'
   let builderDraft = null; // working copy of the array being edited
+  let sessionRole = 'parent'; // 'parent' | 'kid'
+  let childLogsData = null;   // { logs: { [date]: { tasks:{}, feats:{} } } } for the active child only
+  let childLogsRefCurrent = null;
+  let unsubFamily = null;
+  let unsubChildLogs = null;
 
   const els = {
     authScreen: document.getElementById('auth-screen'),
+    kidScreen: document.getElementById('kid-screen'),
     appScreen: document.getElementById('app-screen'),
     builderScreen: document.getElementById('builder-screen'),
     authEmail: document.getElementById('auth-email'),
@@ -438,6 +481,16 @@
     authToggleBtn: document.getElementById('auth-toggle-btn'),
     authSubtitle: document.getElementById('auth-subtitle'),
   };
+
+  function showScreen(name) {
+    els.authScreen.classList.toggle('hidden', name !== 'auth');
+    els.kidScreen.classList.toggle('hidden', name !== 'kid');
+    els.appScreen.classList.toggle('hidden', name !== 'app');
+    if (name !== 'app') els.builderScreen.classList.add('hidden');
+  }
+
+  document.getElementById('kid-mode-btn').addEventListener('click', () => showScreen('kid'));
+  document.getElementById('kid-back-btn').addEventListener('click', () => showScreen('auth'));
 
   let authMode = 'login'; // 'login' | 'signup'
 
@@ -485,17 +538,40 @@
   }
 
   // ---------------------------------------------------------------------
-  // Auth state -> load / create family doc
+  // Auth state -> load / create family doc, as either the parent or a
+  // linked kid device.
   // ---------------------------------------------------------------------
   onAuthStateChanged(auth, async (user) => {
     currentUser = user;
+    if (unsubFamily) { unsubFamily(); unsubFamily = null; }
+    if (unsubChildLogs) { unsubChildLogs(); unsubChildLogs = null; }
+
     if (!user) {
-      els.authScreen.classList.remove('hidden');
-      els.appScreen.classList.add('hidden');
-      els.builderScreen.classList.add('hidden');
+      document.body.classList.remove('kid-mode');
+      showScreen('auth');
       return;
     }
 
+    if (user.isAnonymous) {
+      // Kid device — look up which family/child this device was linked to.
+      const deviceSnap = await getDoc(doc(db, 'linkedDevices', user.uid));
+      if (!deviceSnap.exists()) {
+        showScreen('kid');
+        return;
+      }
+      const { familyId, childId } = deviceSnap.data();
+      sessionRole = 'kid';
+      document.body.classList.add('kid-mode');
+      familyRef = doc(db, 'families', familyId);
+      subscribeToFamily();
+      setActiveChild(childId, { persist: false });
+      showScreen('app');
+      return;
+    }
+
+    // Parent (email/password) session.
+    sessionRole = 'parent';
+    document.body.classList.remove('kid-mode');
     familyRef = doc(db, 'families', user.uid);
     const snap = await getDoc(familyRef);
 
@@ -510,21 +586,89 @@
       await setDoc(familyRef, familyData);
     }
 
-    // Live sync: any change (from this device or another) re-renders.
-    onSnapshot(familyRef, (docSnap) => {
+    subscribeToFamily();
+    showScreen('app');
+  });
+
+  // Live sync of the routine/tier data (parent-editable). Also keeps the
+  // active-child logs subscription in step when it changes on another device.
+  function subscribeToFamily() {
+    unsubFamily = onSnapshot(familyRef, (docSnap) => {
       if (!docSnap.exists()) return;
       familyData = docSnap.data();
-      activeChildId = familyData.activeChildId || Object.keys(familyData.children || {})[0];
+      if (sessionRole === 'parent') {
+        const wantChildId = familyData.activeChildId || Object.keys(familyData.children || {})[0];
+        if (wantChildId && wantChildId !== activeChildId) {
+          setActiveChild(wantChildId, { persist: false });
+          return; // setActiveChild will call render() once logs are loaded
+        }
+      }
       render();
     });
+  }
 
-    els.authScreen.classList.add('hidden');
-    els.appScreen.classList.remove('hidden');
-  });
+  // Switches which child's daily-log document is being watched/written.
+  function setActiveChild(childId, opts) {
+    opts = opts || {};
+    activeChildId = childId;
+    if (unsubChildLogs) { unsubChildLogs(); unsubChildLogs = null; }
+    childLogsRefCurrent = doc(db, 'families', familyRef.id, 'childLogs', childId);
+    unsubChildLogs = onSnapshot(childLogsRefCurrent, (snap) => {
+      childLogsData = snap.exists() ? snap.data() : { logs: {} };
+      render();
+    });
+    if (opts.persist && sessionRole === 'parent' && familyData) {
+      familyData.activeChildId = childId;
+      saveFamily();
+    }
+  }
 
   async function saveFamily() {
     await setDoc(familyRef, familyData);
   }
+
+  async function saveChildLogs() {
+    await setDoc(childLogsRefCurrent, childLogsData);
+  }
+
+  // ---------------------------------------------------------------------
+  // Kid code entry
+  // ---------------------------------------------------------------------
+  document.getElementById('kid-submit-btn').addEventListener('click', async () => {
+    const input = document.getElementById('kid-code-input');
+    const errEl = document.getElementById('kid-error');
+    const btn = document.getElementById('kid-submit-btn');
+    const code = input.value.trim().toUpperCase();
+    errEl.classList.remove('show');
+    if (!code) { errEl.textContent = 'Type in your code first.'; errEl.classList.add('show'); return; }
+
+    btn.disabled = true;
+    try {
+      if (!auth.currentUser || !auth.currentUser.isAnonymous) {
+        await signInAnonymously(auth);
+      }
+      const codeSnap = await getDoc(doc(db, 'linkCodes', code));
+      if (!codeSnap.exists()) {
+        errEl.textContent = "That code doesn't look right — double check with your parent.";
+        errEl.classList.add('show');
+        return;
+      }
+      const { familyId, childId } = codeSnap.data();
+      await setDoc(doc(db, 'linkedDevices', auth.currentUser.uid), { familyId, childId, code, linkedAt: todayKey() });
+
+      sessionRole = 'kid';
+      document.body.classList.add('kid-mode');
+      familyRef = doc(db, 'families', familyId);
+      subscribeToFamily();
+      setActiveChild(childId, { persist: false });
+      showScreen('app');
+    } catch (err) {
+      errEl.textContent = 'Something went wrong — try again.';
+      errEl.classList.add('show');
+    } finally {
+      btn.disabled = false;
+    }
+  });
 
   // ---------------------------------------------------------------------
   // Rendering
@@ -559,16 +703,16 @@
   function renderChildSwitcher() {
     const wrap = document.getElementById('child-switcher');
     wrap.innerHTML = '';
+    // Kids only ever see their own single mission list — no switching, no add.
+    if (sessionRole === 'kid') { wrap.classList.add('hidden'); return; }
+    wrap.classList.remove('hidden');
+
     const children = Object.values(familyData.children || {});
     children.forEach((c) => {
       const pill = document.createElement('div');
       pill.className = 'child-pill' + (c.id === activeChildId ? ' active' : '');
       pill.innerHTML = `<span>${c.emoji}</span><span>${escapeHtml(c.name)}</span>`;
-      pill.addEventListener('click', () => {
-        activeChildId = c.id;
-        familyData.activeChildId = c.id;
-        saveFamily();
-      });
+      pill.addEventListener('click', () => setActiveChild(c.id, { persist: true }));
       wrap.appendChild(pill);
     });
     const addPill = document.createElement('div');
@@ -595,9 +739,13 @@
     return `${h}:${String(m).padStart(2, '0')} ${ampm}`;
   }
 
+  function todaysLog() {
+    return (childLogsData && childLogsData.logs && childLogsData.logs[todayKey()]) || { tasks: {}, feats: {} };
+  }
+
   function renderTasks() {
     const child = activeChild();
-    const log = (child.logs && child.logs[todayKey()]) || { tasks: {}, feats: {} };
+    const log = todaysLog();
     const list = document.getElementById('task-list');
     list.innerHTML = '';
 
@@ -629,7 +777,7 @@
 
   function renderFeats() {
     const child = activeChild();
-    const log = (child.logs && child.logs[todayKey()]) || { tasks: {}, feats: {} };
+    const log = todaysLog();
     const grid = document.getElementById('bonus-grid');
     grid.innerHTML = '';
     let earned = 0;
@@ -653,20 +801,23 @@
   }
 
   // ---------------------------------------------------------------------
-  // Toggling tasks / feats (writes back into the single family doc)
+  // Toggling tasks / feats — writes to the active child's own logs doc,
+  // separate from the family doc. This is what lets a linked kid device
+  // check things off without ever touching the parent's routine/tier data.
   // ---------------------------------------------------------------------
   async function toggleTask(taskId, evt) {
     const child = activeChild();
     const key = todayKey();
-    if (!child.logs) child.logs = {};
-    if (!child.logs[key]) child.logs[key] = { tasks: {}, feats: {} };
-    const wasDone = !!child.logs[key].tasks[taskId];
-    child.logs[key].tasks[taskId] = !wasDone;
+    if (!childLogsData) childLogsData = { logs: {} };
+    if (!childLogsData.logs) childLogsData.logs = {};
+    if (!childLogsData.logs[key]) childLogsData.logs[key] = { tasks: {}, feats: {} };
+    const wasDone = !!childLogsData.logs[key].tasks[taskId];
+    childLogsData.logs[key].tasks[taskId] = !wasDone;
     if (navigator.vibrate) navigator.vibrate(40);
 
     if (!wasDone) {
       popCard(taskId);
-      const doneCount = Object.values(child.logs[key].tasks).filter(Boolean).length;
+      const doneCount = Object.values(childLogsData.logs[key].tasks).filter(Boolean).length;
       const allDone = doneCount === child.tasks.length;
       if (isPremium()) {
         if (allDone) {
@@ -681,30 +832,29 @@
       }
     }
     renderTasks();
-    await saveFamily();
+    await saveChildLogs();
   }
 
   async function toggleFeat(featId, evt) {
     if (!isPremium()) return;
-    const child = activeChild();
     const key = todayKey();
-    if (!child.logs) child.logs = {};
-    if (!child.logs[key]) child.logs[key] = { tasks: {}, feats: {} };
-    const wasActive = !!child.logs[key].feats[featId];
-    child.logs[key].feats[featId] = !wasActive;
+    if (!childLogsData) childLogsData = { logs: {} };
+    if (!childLogsData.logs) childLogsData.logs = {};
+    if (!childLogsData.logs[key]) childLogsData.logs[key] = { tasks: {}, feats: {} };
+    const wasActive = !!childLogsData.logs[key].feats[featId];
+    childLogsData.logs[key].feats[featId] = !wasActive;
     if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
     if (!wasActive) { burstFromEvent(evt, 20, 2.4); playFeatChime(); }
     renderFeats();
-    await saveFamily();
+    await saveChildLogs();
   }
 
   document.getElementById('reset-btn').addEventListener('click', async () => {
     if (!confirm('Reset today\'s missions and feats?')) return;
-    const child = activeChild();
-    if (!child.logs) child.logs = {};
-    child.logs[todayKey()] = { tasks: {}, feats: {} };
+    if (!childLogsData) childLogsData = { logs: {} };
+    childLogsData.logs[todayKey()] = { tasks: {}, feats: {} };
     render();
-    await saveFamily();
+    await saveChildLogs();
   });
 
   // ---------------------------------------------------------------------
@@ -712,7 +862,7 @@
   // ---------------------------------------------------------------------
   function updateNowBanner() {
     const child = activeChild();
-    const log = (child.logs && child.logs[todayKey()]) || { tasks: {} };
+    const log = todaysLog();
     const cards = document.querySelectorAll('.task-card');
     cards.forEach(c => c.classList.remove('current-task'));
 
@@ -869,11 +1019,57 @@
       child.emoji = selectedEmoji;
       familyData.children[child.id] = child;
       familyData.activeChildId = child.id;
-      activeChildId = child.id;
       await saveFamily();
+      setActiveChild(child.id, { persist: false });
       closeModal();
     });
   }
+
+  // ---------------------------------------------------------------------
+  // Kid link code — generated by the parent, entered on the kid's own
+  // device (no email/password) via the kid-screen above.
+  // ---------------------------------------------------------------------
+  async function generateLinkCode(childId) {
+    const child = familyData.children[childId];
+    const oldCode = child.linkCode;
+    const newCode = makeLinkCode();
+    child.linkCode = newCode;
+    await saveFamily();
+    await setDoc(doc(db, 'linkCodes', newCode), { familyId: familyRef.id, childId, createdAt: todayKey() });
+    if (oldCode) {
+      try { await deleteDoc(doc(db, 'linkCodes', oldCode)); } catch (e) { /* fine if it's already gone */ }
+    }
+    return newCode;
+  }
+
+  function openLinkCodeModal() {
+    const child = activeChild();
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet" style="align-items:center; text-align:center;">
+          <h2>${escapeHtml(child.name)}'s Link Code</h2>
+          <p>Open the app on your kid's own device, tap "Kid? Enter your code instead", and type this in. No email needed — they'll only see their own missions.</p>
+          <div class="code-display" id="link-code-value">${child.linkCode ? escapeHtml(child.linkCode) : '— — — — — —'}</div>
+          <button class="primary-btn" id="generate-code-btn" style="width:100%;">${child.linkCode ? 'Generate New Code' : 'Generate Code'}</button>
+          <p style="font-size:11.5px;">Generating a new code turns off any old one — a device already linked with the old code will stop working.</p>
+          <button class="link-btn" id="close-link-code-btn">Close</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-link-code-btn').addEventListener('click', closeModal);
+    document.getElementById('generate-code-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('generate-code-btn');
+      btn.disabled = true;
+      const code = await generateLinkCode(child.id);
+      document.getElementById('link-code-value').textContent = code;
+      btn.textContent = 'Generate New Code';
+      btn.disabled = false;
+    });
+  }
+
+  document.getElementById('link-code-btn').addEventListener('click', openLinkCodeModal);
 
   function openUpgradeModal(reason) {
     const root = document.getElementById('modal-root');
