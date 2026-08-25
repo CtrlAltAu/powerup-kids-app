@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Koda Mission">
+<link rel="manifest" href="manifest.json">
+<title>Koda's Daily Mission</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { overflow-x: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #0f172a;
+    color: #f8fafc;
+    margin: 0;
+    padding: 12px;
+    display: flex;
+    justify-content: center;
+  }
+  .app-container {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+  }
+  .header-card {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+    gap: 10px;
+  }
+  .title { font-size: 20px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+  .subtitle { font-size: 12px; color: #bfdbfe; margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+  .badge {
+    background: #facc15;
+    color: #0f172a;
+    font-weight: 900;
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    text-align: center;
+    line-height: 1.1;
+  }
+  .badge span { font-size: 15px; display: block; }
+  .mute-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(15, 23, 42, 0.35);
+    color: #f8fafc;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .mute-btn:active { background: rgba(15, 23, 42, 0.55); }
+
+  /* Bonus Achievements Section */
+  .bonus-section {
+    background: #1e1b4b;
+    border: 2px solid #6366f1;
+    border-radius: 14px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .bonus-title {
+    font-size: 13px;
+    font-weight: 900;
+    color: #c7d2fe;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: space-between;
+  }
+  .bonus-count {
+    background: #4338ca;
+    color: #e0e7ff;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 999px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .bonus-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .bonus-badge {
+    background: #312e81;
+    border: 2px solid #4f46e5;
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .bonus-badge.active {
+    background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    border-color: #fef08a;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+    transform: scale(1.02);
+  }
+  .bonus-icon { font-size: 20px; }
+  .bonus-name { font-size: 12px; font-weight: 800; color: #e0e7ff; line-height: 1.2; }
+  .bonus-badge.active .bonus-name { color: #000000; font-weight: 900; }
+  .bonus-progress-bg { background: #312e81; height: 8px; border-radius: 6px; overflow: hidden; }
+  .bonus-progress-fill { background: linear-gradient(90deg, #f59e0b, #facc15); height: 100%; width: 0%; transition: width 0.3s ease; }
+
+  /* Progress Bar */
+  .progress-wrap {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .progress-labels { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: #94a3b8; }
+  .progress-bar-bg { background: #334155; height: 10px; border-radius: 6px; overflow: hidden; }
+  .progress-fill { background: #10b981; height: 100%; width: 0%; transition: width 0.3s ease; }
+
+  /* "Do this now" banner */
+  .now-banner {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #92400e 0%, #b45309 100%);
+    border: 2px solid #fbbf24;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #fef3c7;
+    animation: bannerPulse 1.8s ease-in-out infinite;
+  }
+  .now-banner.show { display: flex; }
+  .now-banner .now-emoji { font-size: 18px; animation: bounceEmoji 1s ease-in-out infinite; }
+  @keyframes bannerPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+  }
+  @keyframes bounceEmoji {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+
+  /* Task Cards */
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+  .task-card {
+    background: #1e293b;
+    border: 2px solid #334155;
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.1s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  .task-card:active { transform: scale(0.98); }
+  .task-card.completed { background: #064e3b; border-color: #10b981; }
+  .task-card.current-task {
+    border-color: #f59e0b;
+    animation: pulseGlow 1.6s ease-in-out infinite;
+  }
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+    50% { box-shadow: 0 0 0 9px rgba(245, 158, 11, 0); }
+  }
+  .task-card.pop { animation: popCard 0.4s ease; }
+  @keyframes popCard {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+  .time-tag {
+    font-size: 12px;
+    font-weight: 800;
+    color: #93c5fd;
+    background: #0f172a;
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .task-card.completed .time-tag { color: #a7f3d0; }
+  .task-card.current-task .time-tag { background: #f59e0b; color: #1c1917; }
+  .task-card.current-task .time-tag::before { content: "▶ "; }
+  .task-emoji { font-size: 22px; }
+  .task-info { flex: 1; min-width: 0; }
+  .task-title { font-size: 14px; font-weight: 800; color: #f8fafc; margin: 0 0 2px 0; }
+  .task-desc { font-size: 11px; color: #94a3b8; margin: 0; line-height: 1.2; }
+  .task-card.completed .task-desc { color: #cbd5e1; }
+  .check-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 2px solid #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f172a;
+    font-size: 16px;
+    font-weight: 900;
+    color: transparent;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .task-card.completed .check-circle { background: #10b981; border-color: #10b981; color: #ffffff; }
+  .reset-btn {
+    background: #334155;
+    color: #e2e8f0;
+    border: none;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+  .reset-btn:active { background: #475569; }
+
+  /* Hype toast */
+  .hype-toast {
+    position: fixed;
+    left: 50%;
+    top: 14px;
+    transform: translate(-50%, -140%);
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    color: #111827;
+    font-weight: 900;
+    font-size: 15px;
+    padding: 12px 20px;
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 60;
+    max-width: 90%;
+    text-align: center;
+    opacity: 0;
+    transition: transform 0.35s cubic-bezier(.34,1.56,.64,1), opacity 0.35s ease;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .hype-toast.show { transform: translate(-50%, 0); opacity: 1; }
+  .hype-toast.big {
+    background: linear-gradient(135deg, #facc15, #f97316, #ec4899);
+    font-size: 18px;
+    padding: 16px 24px;
+  }
+
+  /* Confetti canvas */
+  #confetti-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 55;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="confetti-canvas"></canvas>
+<div class="hype-toast" id="hype-toast"></div>
+
+<div class="app-container">
+  <div class="header-card">
+    <div>
+      <h1 class="title">⚡ Koda's Mission</h1>
+      <div class="subtitle">Complete list • Unlock bike time</div>
+    </div>
+    <div class="header-right">
+      <button class="mute-btn" id="mute-btn" onclick="toggleMute()">🔊</button>
+      <div class="badge">TARGET<span>2:00 PM</span></div>
+    </div>
+  </div>
+
+  <!-- "Do this now" reminder banner -->
+  <div class="now-banner" id="now-banner">
+    <span class="now-emoji">👉</span>
+    <span id="now-banner-text">Do this now: ...</span>
+  </div>
+
+  <!-- BONUS FEATS SECTION -->
+  <div class="bonus-section">
+    <div class="bonus-title">
+      <span>🏆 Daily Epic Feats (Bonus Power)</span>
+      <span class="bonus-count" id="feat-count">0 / 4</span>
+    </div>
+    <div class="bonus-grid">
+      <div class="bonus-badge" id="feat-0" onclick="toggleFeat(0, event)">
+        <div class="bonus-icon">🧠</div>
+        <div class="bonus-name">Broke Mental Block</div>
+      </div>
+      <div class="bonus-badge" id="feat-1" onclick="toggleFeat(1, event)">
+        <div class="bonus-icon">🤐</div>
+        <div class="bonus-name">Zero-Complaint Day</div>
+      </div>
+      <div class="bonus-badge" id="feat-2" onclick="toggleFeat(2, event)">
+        <div class="bonus-icon">🚀</div>
+        <div class="bonus-name">Self-Starter Speed</div>
+      </div>
+      <div class="bonus-badge" id="feat-3" onclick="toggleFeat(3, event)">
+        <div class="bonus-icon">🤝</div>
+        <div class="bonus-name">Legend Teamwork</div>
+      </div>
+    </div>
+    <div class="bonus-progress-bg">
+      <div class="bonus-progress-fill" id="feat-bar"></div>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-labels">
+      <span>Daily Tasks</span>
+      <span id="progress-text">0 / 8 Done</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-fill" id="progress-bar"></div>
+    </div>
+  </div>
+
+  <div class="task-list">
+    <div class="task-card" onclick="toggleTask(0, event)">
+      <div class="time-tag">11:00 AM</div>
+      <div class="task-emoji">⚡</div>
+      <div class="task-info">
+        <div class="task-title">Wake & Fuel Up</div>
+        <div class="task-desc">Alarm off • Tall glass of water • High-protein breakfast • Dressed & teeth brushed</div>
+      </div>
+      <div class="check-circle">✓</div>
+    </div>
+
+    <div class="task-card" onclick="toggleTask(1, event)">
+      <div class="time-tag">11:20 AM</div>
+      <div class="task-emoji">🛏️</div>
+      <div class="task-info">
+        <div class="task-title">Room Blitz (10 Min)</div>
+        <div class="task-desc">Bed made • Clothes in hamper • Floor clear of gear & rubbish</div>
+      </div>
+      <div class="check-circle">✓</div>
+    </div>
+
+    <div class="task-card" onclick="toggleTask(2, event)">
+      <div class="time-tag">11:30 AM</div>
+      <div class="task-emoji">📚</div>
+      <div class="task-info">
+        <div class="task-title">School Focus — Part 1</div>
+        <div class="task-desc">Academic work with Mum • Visual timer running for 45 min</div>
+      </div>
+      <div class="check-circle">✓</div>
+    </div>
+
+    <div class="task-card" onclick="toggleTask(3, event)">
+      <div class="time-tag">12:15 PM</div>
+      <div class="task-emoji">☕</div>
+      <div class="task-info">
+        <div class="task-title">Brain Break (15 Min)</div>
+        <div class="task-desc">Snack / stretch / movement • Strictly no video games or screens</div>
+      </div>
+      <div class="check-circle">✓</div>
+    </div>
+
+    <div class="task-card" onclick="toggleTask(4, event)">
+      <div class="time-tag">12:30 PM</div>
+      <div class="task-emoji">📝</div>
+      <div class="task-info">
+        <div class="task-title">School Focus — Part 2</div>
+        <div class="task-desc">Final 45-min push • Work complete • Workspace packed away</div>
+      </div>
+      <div class="check-circle">✓</div>
+    </div>
+
+    <div class="task-card" onclick="toggleTask(5, event)">
+      <div class="time-tag">1:15 PM</div>
+      <div class="task-emoji">🍔</div>
+      <div class="task-info">
+        <div class="task-title">Lunch Break</div>
+        <div class="task-desc">Eat lunch & hydrate • Quick recharge before chores sprint</div>
+      </div>
+      <div class="check-circle">✓</div>
+    </div>
+
+    <div class="task-card" onclick="toggleTask(6, event)">
+      <div class="time-tag">1:40 PM</div>
+      <div class="task-emoji">🗑️</div>
+      <div class="task-info">
+        <div class="task-title">Daily Chores Blitz (20 Min)</div>
+        <div class="task-desc">Bins emptied • Dishwasher loaded/unloaded • Kitchen bench clean</div>
+      </div>
+      <div class="check-circle">✓</div>
+    </div>
+
+    <div class="task-card" onclick="toggleTask(7, event)" style="border-color: #eab308;">
+      <div class="time-tag" style="background: #eab308; color: #000;">2:00 PM</div>
+      <div class="task-emoji">🔓</div>
+      <div class="task-info">
+        <div class="task-title" style="color: #facc15;">AFTERNOON UNLOCKED!</div>
+        <div class="task-desc" style="color: #fde047;">Mum inspects list & confirms → Bike & free time unlocked!</div>
+      </div>
+      <div class="check-circle">✓</div>
+    </div>
+  </div>
+
+  <button class="reset-btn" onclick="resetAll()">🔄 Reset Checklist & Feats for New Day</button>
+</div>
+
+<!-- Firebase Realtime SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDACXkEFFDFKemTKtkXPHTX0EzZWFUScRI",
+    authDomain: "koda-routine.firebaseapp.com",
+    databaseURL: "https://koda-routine-default-rtdb.firebaseio.com",
+    projectId: "koda-routine",
+    storageBucket: "koda-routine.firebasestorage.app",
+    messagingSenderId: "96020026048",
+    appId: "1:96020026048:web:6518f93a46e77430165325"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const taskRef = ref(db, 'koda_tasks');
+  const featRef = ref(db, 'koda_feats');
+
+  const totalTasks = 8;
+  const totalFeats = 4;
+  // Scheduled start time for each task, in minutes since midnight — used to
+  // work out which task Koda should be doing *right now*.
+  const taskTimes = [660, 680, 690, 735, 750, 795, 820, 840]; // 11:00,11:20,11:30,12:15,12:30,13:15,13:40,14:00
+
+  let taskState = new Array(totalTasks).fill(false);
+  let featState = new Array(totalFeats).fill(false);
+
+  // ---------- Sound (Web Audio, no external files needed) ----------
+  let audioCtx = null;
+  let muted = localStorage.getItem('koda_muted') === '1';
+
+  function getAudioCtx() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playNote(freq, startTime, duration, type, gainPeak) {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.exponentialRampToValueAtTime(gainPeak || 0.25, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.02);
+  }
+
+  function playTaskChime() {
+    if (muted) return;
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    playNote(523.25, t, 0.14, 'sine');       // C5
+    playNote(783.99, t + 0.1, 0.18, 'sine'); // G5
+  }
+
+  function playFeatChime() {
+    if (muted) return;
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    playNote(659.25, t, 0.12, 'triangle');
+    playNote(987.77, t + 0.08, 0.2, 'triangle');
+  }
+
+  function playFanfare() {
+    if (muted) return;
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((f, i) => playNote(f, t + i * 0.13, 0.22, 'square', 0.18));
+    playNote(1046.5, t + notes.length * 0.13, 0.5, 'sawtooth', 0.15);
+  }
+
+  window.toggleMute = function () {
+    muted = !muted;
+    localStorage.setItem('koda_muted', muted ? '1' : '0');
+    document.getElementById('mute-btn').textContent = muted ? '🔇' : '🔊';
+    if (!muted) getAudioCtx();
+  };
+  document.getElementById('mute-btn').textContent = muted ? '🔇' : '🔊';
+
+  // ---------- Confetti ----------
+  const confettiCanvas = document.getElementById('confetti-canvas');
+  const cctx = confettiCanvas.getContext('2d');
+  let confettiParticles = [];
+  let confettiRunning = false;
+
+  function resizeCanvas() {
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  const CONFETTI_COLORS = ['#f59e0b', '#facc15', '#10b981', '#3b82f6', '#ec4899', '#ffffff'];
+
+  function spawnConfetti(x, y, count, spread) {
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.random() * Math.PI * (spread || 1.4)) - (spread || 1.4) / 2 - Math.PI / 2;
+      const speed = 4 + Math.random() * 7;
+      confettiParticles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: 5 + Math.random() * 5,
+        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.4,
+        life: 0,
+        maxLife: 70 + Math.random() * 30
+      });
+    }
+    if (!confettiRunning) {
+      confettiRunning = true;
+      requestAnimationFrame(animateConfetti);
+    }
+  }
+
+  function animateConfetti() {
+    cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    confettiParticles.forEach(p => {
+      p.vy += 0.22; // gravity
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.rotSpeed;
+      p.life++;
+      const fade = Math.max(0, 1 - p.life / p.maxLife);
+      cctx.save();
+      cctx.globalAlpha = fade;
+      cctx.translate(p.x, p.y);
+      cctx.rotate(p.rotation);
+      cctx.fillStyle = p.color;
+      cctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+      cctx.restore();
+    });
+    confettiParticles = confettiParticles.filter(p => p.life < p.maxLife && p.y < confettiCanvas.height + 40);
+    if (confettiParticles.length > 0) {
+      requestAnimationFrame(animateConfetti);
+    } else {
+      confettiRunning = false;
+      cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    }
+  }
+
+  function burstFromEvent(evt, count, spread) {
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 3;
+    if (evt && evt.currentTarget && evt.currentTarget.getBoundingClientRect) {
+      const r = evt.currentTarget.getBoundingClientRect();
+      x = r.left + r.width / 2;
+      y = r.top + r.height / 2;
+    }
+    spawnConfetti(x, y, count || 26, spread);
+  }
+
+  function burstFullScreen(count) {
+    const n = count || 90;
+    for (let i = 0; i < n; i++) {
+      spawnConfetti(Math.random() * confettiCanvas.width, -10 - Math.random() * 60, 1, 3);
+    }
+  }
+
+  // ---------- Hype messages (Aussie flavour, kept clean & kid-friendly) ----------
+  const HYPE_MESSAGES = [
+    'OI OI, SEND IT! 🔥',
+    'Deadset legend! 💪',
+    'You flamed that one! 🚀',
+    'Absolute unit! 😤',
+    'Cooked it — the good way! 🍗',
+    "She's done, easy! ✅",
+    'Big dog energy! 🐕',
+    'Certified weapon! ⚡',
+    'Get around it! 🙌',
+    "That's a wrap, big lad! 🎉",
+    'Full sender, no brakes! 🏁',
+    'Too easy, champion! 👊',
+    "You're cooking today! 👨‍🍳",
+    'Flat out smashed that! 💥',
+    "Ay, that's the vibe! 😎",
+    'Absolute scenes! 🎊'
+  ];
+
+  const BIG_HYPE_MESSAGES = [
+    'FULL SEND — MISSION COMPLETE, LEGEND! 🏆🔥',
+    "IT'S COOKED, IT'S DONE, YOU'RE A WEAPON! 🏆⚡",
+    'DEADSET CHAMPION — BIKE TIME LOCKED IN! 🚲🏆',
+    'DAY = SMASHED. GO GET AMONGST IT! 🏆🎉'
+  ];
+
+  const hypeToast = document.getElementById('hype-toast');
+  let hypeTimer = null;
+
+  function showHype(text, big) {
+    clearTimeout(hypeTimer);
+    hypeToast.textContent = text;
+    hypeToast.classList.toggle('big', !!big);
+    // restart animation
+    hypeToast.classList.remove('show');
+    void hypeToast.offsetWidth;
+    hypeToast.classList.add('show');
+    hypeTimer = setTimeout(() => hypeToast.classList.remove('show'), big ? 3200 : 2000);
+  }
+
+  function randomFrom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function popCard(index) {
+    const card = document.querySelectorAll('.task-card')[index];
+    if (!card) return;
+    card.classList.remove('pop');
+    void card.offsetWidth;
+    card.classList.add('pop');
+  }
+
+  // ---------- "Do this now" live reminder ----------
+  function updateNowBanner() {
+    const banner = document.getElementById('now-banner');
+    const bannerText = document.getElementById('now-banner-text');
+    const cards = document.querySelectorAll('.task-card');
+    cards.forEach(c => c.classList.remove('current-task'));
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // First task that's due (its time has arrived) and not yet completed.
+    let currentIndex = -1;
+    for (let i = 0; i < totalTasks; i++) {
+      if (!taskState[i] && taskTimes[i] <= nowMinutes) {
+        currentIndex = i;
+        break;
+      }
+    }
+
+    if (currentIndex === -1) {
+      banner.classList.remove('show');
+      return;
+    }
+
+    if (cards[currentIndex]) cards[currentIndex].classList.add('current-task');
+    const title = cards[currentIndex].querySelector('.task-title').textContent;
+    bannerText.textContent = `Do this now: ${title}`;
+    banner.classList.add('show');
+  }
+
+  setInterval(updateNowBanner, 30000);
+
+  // ---------- Firebase sync ----------
+  onValue(taskRef, (snapshot) => {
+    const data = snapshot.val();
+    taskState = data || new Array(totalTasks).fill(false);
+    renderTasks();
+  });
+
+  onValue(featRef, (snapshot) => {
+    const data = snapshot.val();
+    featState = data || new Array(totalFeats).fill(false);
+    renderFeats();
+  });
+
+  function renderTasks() {
+    let completed = 0;
+    const cards = document.querySelectorAll('.task-card');
+    taskState.forEach((isDone, i) => {
+      if (isDone) {
+        cards[i].classList.add('completed');
+        completed++;
+      } else {
+        cards[i].classList.remove('completed');
+      }
+    });
+    const percent = Math.round((completed / totalTasks) * 100);
+    document.getElementById('progress-bar').style.width = percent + '%';
+    document.getElementById('progress-text').innerText = `${completed} / ${totalTasks} Done (${percent}%)`;
+    updateNowBanner();
+  }
+
+  function renderFeats() {
+    let earned = 0;
+    featState.forEach((isActive, i) => {
+      const el = document.getElementById(`feat-${i}`);
+      if (el) {
+        if (isActive) { el.classList.add('active'); earned++; }
+        else el.classList.remove('active');
+      }
+    });
+    const percent = Math.round((earned / totalFeats) * 100);
+    document.getElementById('feat-bar').style.width = percent + '%';
+    document.getElementById('feat-count').textContent = `${earned} / ${totalFeats}`;
+  }
+
+  window.toggleTask = function (index, evt) {
+    const wasCompleted = taskState[index];
+    taskState[index] = !wasCompleted;
+    if (navigator.vibrate) navigator.vibrate(40);
+
+    if (!wasCompleted) {
+      // Just turned this task ON — celebrate.
+      popCard(index);
+      const completedCount = taskState.filter(Boolean).length;
+      if (completedCount === totalTasks) {
+        burstFullScreen(110);
+        showHype(randomFrom(BIG_HYPE_MESSAGES), true);
+        playFanfare();
+      } else {
+        burstFromEvent(evt, 28);
+        showHype(randomFrom(HYPE_MESSAGES), false);
+        playTaskChime();
+      }
+    }
+
+    set(taskRef, taskState);
+  };
+
+  window.toggleFeat = function (index, evt) {
+    const wasActive = featState[index];
+    featState[index] = !wasActive;
+    if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+
+    if (!wasActive) {
+      burstFromEvent(evt, 20, 2.4);
+      playFeatChime();
+    }
+
+    set(featRef, featState);
+  };
+
+  window.resetAll = function () {
+    if (confirm('Reset tasks and feats for a new day?')) {
+      taskState = new Array(totalTasks).fill(false);
+      featState = new Array(totalFeats).fill(false);
+      set(taskRef, taskState);
+      set(featRef, featState);
+    }
+  };
+</script>
+</body>
+</html>
