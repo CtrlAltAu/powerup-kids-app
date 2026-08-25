@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PowerUp Kids">
+<title>PowerUp Kids — Daily Missions</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { overflow-x: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #0f172a;
+    color: #f8fafc;
+    margin: 0;
+    padding: 12px;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+  .app-container { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+  .hidden { display: none !important; }
+  button { font-family: inherit; }
+  input { font-family: inherit; }
+
+  /* ---------- Shared card look ---------- */
+  .card {
+    background: #1e293b;
+    border: 2px solid #334155;
+    border-radius: 14px;
+    padding: 16px;
+  }
+
+  /* ---------- Auth screen ---------- */
+  #auth-screen { display: flex; flex-direction: column; gap: 14px; justify-content: center; min-height: 90vh; }
+  .auth-logo { text-align: center; font-size: 40px; margin-bottom: -4px; }
+  .auth-title { text-align: center; font-size: 22px; font-weight: 900; margin: 0; }
+  .auth-subtitle { text-align: center; font-size: 13px; color: #94a3b8; margin: 0 0 8px; }
+  .field-label { font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 4px; display: block; }
+  .field-input {
+    width: 100%;
+    background: #0f172a;
+    border: 2px solid #334155;
+    border-radius: 10px;
+    padding: 11px 12px;
+    color: #f8fafc;
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+  .field-input:focus { outline: none; border-color: #6366f1; }
+  .primary-btn {
+    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 13px;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .primary-btn:active { transform: scale(0.98); }
+  .primary-btn:disabled { opacity: 0.6; }
+  .link-btn {
+    background: none;
+    border: none;
+    color: #93c5fd;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    padding: 6px;
+  }
+  .auth-error {
+    background: #450a0a;
+    border: 1px solid #b91c1c;
+    color: #fca5a5;
+    font-size: 12.5px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    display: none;
+  }
+  .auth-error.show { display: block; }
+
+  /* ---------- Header ---------- */
+  .header-card {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    border-radius: 16px;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .child-emoji-badge { font-size: 26px; }
+  .title { font-size: 17px; font-weight: 900; margin: 0; }
+  .subtitle { font-size: 11px; color: #bfdbfe; margin-top: 1px; }
+  .header-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .icon-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: rgba(15,23,42,0.35); color: #f8fafc; font-size: 15px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+
+  /* ---------- Tier banner ---------- */
+  .tier-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 14px; border-radius: 12px; font-size: 12.5px; font-weight: 700;
+  }
+  .tier-banner.free { background: #1e293b; border: 2px dashed #475569; color: #94a3b8; }
+  .tier-banner.premium { background: linear-gradient(135deg, #78350f, #b45309); border: 2px solid #fbbf24; color: #fef3c7; }
+  .upgrade-chip {
+    background: #facc15; color: #422006; font-weight: 900; font-size: 11.5px;
+    padding: 5px 10px; border-radius: 8px; border: none; cursor: pointer;
+  }
+
+  /* ---------- Child switcher ---------- */
+  .child-switcher { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .child-pill {
+    flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+    background: #1e293b; border: 2px solid #334155; border-radius: 999px;
+    padding: 6px 12px 6px 8px; font-size: 12.5px; font-weight: 800; cursor: pointer;
+  }
+  .child-pill.active { background: #312e81; border-color: #6366f1; }
+  .child-pill .add-icon { font-size: 15px; }
+
+  /* ---------- Bonus feats ---------- */
+  .bonus-section { background: #1e1b4b; border: 2px solid #6366f1; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .bonus-title { font-size: 13px; font-weight: 900; color: #c7d2fe; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .bonus-count { background: #4338ca; color: #e0e7ff; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 999px; text-transform: none; }
+  .bonus-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .bonus-badge { background: #312e81; border: 2px solid #4f46e5; border-radius: 10px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; transition: all 0.2s; }
+  .bonus-badge.active { background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); border-color: #fef08a; box-shadow: 0 0 12px rgba(245,158,11,0.5); transform: scale(1.02); }
+  .bonus-icon { font-size: 20px; }
+  .bonus-name { font-size: 12px; font-weight: 800; color: #e0e7ff; line-height: 1.2; }
+  .bonus-badge.active .bonus-name { color: #000; font-weight: 900; }
+  .bonus-progress-bg { background: #312e81; height: 8px; border-radius: 6px; overflow: hidden; }
+  .bonus-progress-fill { background: linear-gradient(90deg, #f59e0b, #facc15); height: 100%; width: 0%; transition: width 0.3s ease; }
+  .locked-panel {
+    background: #1e293b; border: 2px dashed #475569; border-radius: 14px;
+    padding: 18px; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center;
+  }
+  .locked-panel .lock-emoji { font-size: 26px; }
+  .locked-panel p { margin: 0; font-size: 12.5px; color: #94a3b8; max-width: 34ch; }
+
+  /* ---------- Progress ---------- */
+  .progress-wrap { background: #1e293b; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .progress-labels { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: #94a3b8; }
+  .progress-bar-bg { background: #334155; height: 10px; border-radius: 6px; overflow: hidden; }
+  .progress-fill { background: #10b981; height: 100%; width: 0%; transition: width 0.3s ease; }
+
+  /* ---------- Now banner ---------- */
+  .now-banner {
+    display: none; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, #92400e 0%, #b45309 100%);
+    border: 2px solid #fbbf24; border-radius: 12px; padding: 10px 12px;
+    font-size: 13px; font-weight: 800; color: #fef3c7;
+    animation: bannerPulse 1.8s ease-in-out infinite;
+  }
+  .now-banner.show { display: flex; }
+  @keyframes bannerPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(251,191,36,0.5);} 50% { box-shadow: 0 0 0 8px rgba(251,191,36,0);} }
+
+  /* ---------- Task cards ---------- */
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+  .task-card {
+    background: #1e293b; border: 2px solid #334155; border-radius: 12px; padding: 12px;
+    display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none;
+    transition: transform 0.1s, border-color 0.2s, background 0.2s, box-shadow 0.2s; position: relative;
+  }
+  .task-card:active { transform: scale(0.98); }
+  .task-card.completed { background: #064e3b; border-color: #10b981; }
+  .task-card.current-task { border-color: #f59e0b; animation: pulseGlow 1.6s ease-in-out infinite; }
+  @keyframes pulseGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55);} 50% { box-shadow: 0 0 0 9px rgba(245,158,11,0);} }
+  .task-card.pop { animation: popCard 0.4s ease; }
+  @keyframes popCard { 0%{transform:scale(1);} 35%{transform:scale(1.04);} 100%{transform:scale(1);} }
+  .time-tag { font-size: 12px; font-weight: 800; color: #93c5fd; background: #0f172a; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+  .task-card.completed .time-tag { color: #a7f3d0; }
+  .task-card.current-task .time-tag { background: #f59e0b; color: #1c1917; }
+  .task-card.current-task .time-tag::before { content: "▶ "; }
+  .task-emoji { font-size: 22px; }
+  .task-info { flex: 1; min-width: 0; }
+  .task-title { font-size: 14px; font-weight: 800; color: #f8fafc; margin: 0 0 2px 0; }
+  .task-desc { font-size: 11px; color: #94a3b8; margin: 0; line-height: 1.2; }
+  .task-card.completed .task-desc { color: #cbd5e1; }
+  .check-circle {
+    width: 32px; height: 32px; border-radius: 8px; border: 2px solid #64748b;
+    display: flex; align-items: center; justify-content: center; background: #0f172a;
+    font-size: 16px; font-weight: 900; color: transparent; transition: all 0.2s; flex-shrink: 0;
+  }
+  .task-card.completed .check-circle { background: #10b981; border-color: #10b981; color: #fff; }
+
+  .ghost-btn {
+    background: #334155; color: #e2e8f0; border: none; border-radius: 10px;
+    padding: 12px; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .ghost-btn:active { background: #475569; }
+  .ghost-btn.danger { background: #7f1d1d; color: #fecaca; }
+
+  /* ---------- Builder screen ---------- */
+  #builder-screen { display: flex; flex-direction: column; gap: 12px; }
+  .builder-back { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #93c5fd; cursor: pointer; }
+  .builder-list { display: flex; flex-direction: column; gap: 8px; }
+  .builder-row {
+    background: #1e293b; border: 2px solid #334155; border-radius: 12px; padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .builder-row-main { flex: 1; min-width: 0; }
+  .builder-row input.field-input, .builder-row select.field-input { margin-bottom: 6px; font-size: 13px; padding: 8px 10px; }
+  .builder-row-fields { display: grid; grid-template-columns: 1fr 90px; gap: 8px; }
+  .builder-row-fields.full { grid-template-columns: 1fr; }
+  .row-remove { background: #7f1d1d; color: #fecaca; border: none; border-radius: 8px; width: 32px; height: 32px; flex-shrink: 0; cursor: pointer; font-size: 15px; }
+  .add-row-btn {
+    border: 2px dashed #475569; background: transparent; color: #93c5fd; border-radius: 12px;
+    padding: 12px; font-weight: 800; font-size: 13px; cursor: pointer;
+  }
+  .builder-save-bar { display: flex; gap: 8px; position: sticky; bottom: 0; padding-top: 4px; }
+  .builder-save-bar .primary-btn { flex: 1; }
+
+  /* ---------- Toasts / confetti (reused) ---------- */
+  .hype-toast {
+    position: fixed; left: 50%; top: 14px; transform: translate(-50%, -140%);
+    background: linear-gradient(135deg, #f59e0b, #ef4444); color: #111827; font-weight: 900;
+    font-size: 15px; padding: 12px 20px; border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 60; max-width: 90%; text-align: center; opacity: 0;
+    transition: transform 0.35s cubic-bezier(.34,1.56,.64,1), opacity 0.35s ease; pointer-events: none; white-space: nowrap;
+  }
+  .hype-toast.show { transform: translate(-50%, 0); opacity: 1; }
+  .hype-toast.big { background: linear-gradient(135deg, #facc15, #f97316, #ec4899); font-size: 18px; padding: 16px 24px; }
+  #confetti-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 55; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 70;
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .modal-sheet {
+    background: #0f172a; border: 2px solid #334155; border-radius: 20px 20px 0 0;
+    width: 100%; max-width: 520px; padding: 20px; display: flex; flex-direction: column; gap: 12px;
+    max-height: 85vh; overflow-y: auto;
+  }
+  .modal-sheet h2 { font-size: 18px; margin: 0; }
+  .modal-sheet p { font-size: 13.5px; color: #94a3b8; margin: 0; }
+  .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .emoji-opt {
+    background: #1e293b; border: 2px solid #334155; border-radius: 10px; font-size: 22px;
+    padding: 8px 0; cursor: pointer;
+  }
+  .emoji-opt.selected { border-color: #6366f1; background: #312e81; }
+</style>
+</head>
+<body>
+
+<canvas id="confetti-canvas"></canvas>
+<div class="hype-toast" id="hype-toast"></div>
+
+<div class="app-container">
+
+  <!-- ============ AUTH SCREEN ============ -->
+  <div id="auth-screen">
+    <div class="auth-logo">🚀</div>
+    <h1 class="auth-title">PowerUp Kids</h1>
+    <p class="auth-subtitle" id="auth-subtitle">Daily missions, built for your kid.</p>
+    <div class="card">
+      <div class="auth-error" id="auth-error"></div>
+      <label class="field-label">Email</label>
+      <input class="field-input" id="auth-email" type="email" autocomplete="email" placeholder="you@example.com">
+      <label class="field-label">Password</label>
+      <input class="field-input" id="auth-password" type="password" autocomplete="current-password" placeholder="At least 6 characters">
+      <button class="primary-btn" id="auth-submit-btn" style="width:100%">Log In</button>
+    </div>
+    <button class="link-btn" id="auth-toggle-btn">Don't have an account? Sign up</button>
+  </div>
+
+  <!-- ============ MAIN APP ============ -->
+  <div id="app-screen" class="hidden" style="display:flex; flex-direction:column; gap:10px;">
+
+    <div class="header-card">
+      <div class="header-left">
+        <span class="child-emoji-badge" id="child-emoji">🧑</span>
+        <div style="min-width:0;">
+          <h1 class="title" id="child-name-display">Loading…</h1>
+          <div class="subtitle">Complete the missions</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="settings-btn" title="Settings">⚙️</button>
+      </div>
+    </div>
+
+    <div class="child-switcher" id="child-switcher"></div>
+
+    <div class="tier-banner free hidden" id="tier-banner-free">
+      <span>🔒 Free plan — basic missions only</span>
+      <button class="upgrade-chip" id="upgrade-btn-1">Upgrade</button>
+    </div>
+    <div class="tier-banner premium hidden" id="tier-banner-premium">
+      <span>⭐ Premium — full PowerUp experience unlocked</span>
+    </div>
+
+    <div class="now-banner" id="now-banner">
+      <span>👉</span>
+      <span id="now-banner-text">Do this now: ...</span>
+    </div>
+
+    <!-- Bonus feats: shown for premium -->
+    <div class="bonus-section hidden" id="bonus-section">
+      <div class="bonus-title">
+        <span>🏆 Epic Feats (Bonus Power)</span>
+        <span class="bonus-count" id="feat-count">0 / 0</span>
+      </div>
+      <div class="bonus-grid" id="bonus-grid"></div>
+      <div class="bonus-progress-bg"><div class="bonus-progress-fill" id="feat-bar"></div></div>
+      <button class="ghost-btn" id="edit-feats-btn" style="margin-top:2px;">✏️ Edit Feats</button>
+    </div>
+
+    <!-- Locked feats panel for free tier -->
+    <div class="locked-panel hidden" id="feats-locked-panel">
+      <span class="lock-emoji">🔒</span>
+      <p><strong>Epic Feats</strong> and celebration effects are a Premium feature.</p>
+      <button class="upgrade-chip" id="upgrade-btn-2">Unlock Premium</button>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-labels"><span>Daily Missions</span><span id="progress-text">0 / 0 Done</span></div>
+      <div class="progress-bar-bg"><div class="progress-fill" id="progress-bar"></div></div>
+    </div>
+
+    <div class="task-list" id="task-list"></div>
+
+    <button class="ghost-btn" id="edit-tasks-btn">✏️ Edit Missions</button>
+    <button class="ghost-btn" id="reset-btn">🔄 Reset Checklist &amp; Feats for New Day</button>
+  </div>
+
+  <!-- ============ BUILDER SCREEN (tasks or feats) ============ -->
+  <div id="builder-screen" class="hidden">
+    <div class="builder-back" id="builder-back">← Back to missions</div>
+    <h2 id="builder-title" style="margin:0; font-size:19px;">Edit Missions</h2>
+    <div class="builder-list" id="builder-list"></div>
+    <button class="add-row-btn" id="builder-add-btn">+ Add</button>
+    <div class="builder-save-bar">
+      <button class="primary-btn" id="builder-save-btn">Save Changes</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ MODALS (settings, child picker, upgrade) rendered via JS ============ -->
+<div id="modal-root"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+  import {
+    getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    onAuthStateChanged, signOut
+  } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDACXkEFFDFKemTKtkXPHTX0EzZWFUScRI",
+    authDomain: "koda-routine.firebaseapp.com",
+    databaseURL: "https://koda-routine-default-rtdb.firebaseio.com",
+    projectId: "koda-routine",
+    storageBucket: "koda-routine.firebasestorage.app",
+    messagingSenderId: "96020026048",
+    appId: "1:96020026048:web:6518f93a46e77430165325"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // ---------------------------------------------------------------------
+  // Default starter template seeded for every brand-new family.
+  // ---------------------------------------------------------------------
+  function makeId() {
+    return 'id-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+
+  function defaultTasks() {
+    return [
+      { id: makeId(), time: '09:00', emoji: '⚡', title: 'Wake & Get Ready', desc: 'Out of bed, dressed, teeth brushed' },
+      { id: makeId(), time: '09:20', emoji: '🛏️', title: 'Room Tidy (10 min)', desc: 'Bed made, floor clear' },
+      { id: makeId(), time: '09:30', emoji: '📚', title: 'Focus Time — Part 1', desc: 'Quiet work, timer running' },
+      { id: makeId(), time: '10:15', emoji: '☕', title: 'Brain Break (15 min)', desc: 'Snack, stretch, no screens' },
+      { id: makeId(), time: '10:30', emoji: '📝', title: 'Focus Time — Part 2', desc: 'Finish up, pack away' },
+      { id: makeId(), time: '11:15', emoji: '🍔', title: 'Lunch Break', desc: 'Eat and hydrate' },
+      { id: makeId(), time: '11:40', emoji: '🗑️', title: 'Chores (20 min)', desc: 'Quick tidy sweep' },
+      { id: makeId(), time: '12:00', emoji: '🔓', title: 'All Done!', desc: 'Free time unlocked' }
+    ];
+  }
+
+  function defaultFeats() {
+    return [
+      { id: makeId(), icon: '🧠', name: 'Broke a Mental Block' },
+      { id: makeId(), icon: '🤐', name: 'Zero-Complaint Day' },
+      { id: makeId(), icon: '🚀', name: 'Self-Starter Speed' },
+      { id: makeId(), icon: '🤝', name: 'Legend Teamwork' }
+    ];
+  }
+
+  function defaultChild(name) {
+    return {
+      id: makeId(),
+      name: name || 'My Kid',
+      emoji: '🧑',
+      tasks: defaultTasks(),
+      feats: defaultFeats(),
+      logs: {}
+    };
+  }
+
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // ---------------------------------------------------------------------
+  // App state
+  // ---------------------------------------------------------------------
+  let familyData = null;   // the whole Firestore doc for this family
+  let familyRef = null;
+  let activeChildId = null;
+  let currentUser = null;
+  let builderMode = null;  // 'tasks' | 'feats'
+  let builderDraft = null; // working copy of the array being edited
+
+  const els = {
+    authScreen: document.getElementById('auth-screen'),
+    appScreen: document.getElementById('app-screen'),
+    builderScreen: document.getElementById('builder-screen'),
+    authEmail: document.getElementById('auth-email'),
+    authPassword: document.getElementById('auth-password'),
+    authError: document.getElementById('auth-error'),
+    authSubmitBtn: document.getElementById('auth-submit-btn'),
+    authToggleBtn: document.getElementById('auth-toggle-btn'),
+    authSubtitle: document.getElementById('auth-subtitle'),
+  };
+
+  let authMode = 'login'; // 'login' | 'signup'
+
+  els.authToggleBtn.addEventListener('click', () => {
+    authMode = authMode === 'login' ? 'signup' : 'login';
+    els.authSubmitBtn.textContent = authMode === 'login' ? 'Log In' : 'Create Account';
+    els.authToggleBtn.textContent = authMode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in';
+    els.authError.classList.remove('show');
+  });
+
+  els.authSubmitBtn.addEventListener('click', async () => {
+    const email = els.authEmail.value.trim();
+    const password = els.authPassword.value;
+    els.authError.classList.remove('show');
+    if (!email || !password) {
+      showAuthError('Enter an email and password.');
+      return;
+    }
+    els.authSubmitBtn.disabled = true;
+    try {
+      if (authMode === 'signup') {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err) {
+      showAuthError(friendlyAuthError(err));
+    } finally {
+      els.authSubmitBtn.disabled = false;
+    }
+  });
+
+  function showAuthError(msg) {
+    els.authError.textContent = msg;
+    els.authError.classList.add('show');
+  }
+
+  function friendlyAuthError(err) {
+    const code = err && err.code || '';
+    if (code.includes('email-already-in-use')) return 'That email already has an account — try logging in instead.';
+    if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return "Email or password didn't match.";
+    if (code.includes('weak-password')) return 'Password needs to be at least 6 characters.';
+    if (code.includes('invalid-email')) return "That email doesn't look right.";
+    return "Something went wrong — check your details and try again.";
+  }
+
+  // ---------------------------------------------------------------------
+  // Auth state -> load / create family doc
+  // ---------------------------------------------------------------------
+  onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+    if (!user) {
+      els.authScreen.classList.remove('hidden');
+      els.appScreen.classList.add('hidden');
+      els.builderScreen.classList.add('hidden');
+      return;
+    }
+
+    familyRef = doc(db, 'families', user.uid);
+    const snap = await getDoc(familyRef);
+
+    if (!snap.exists()) {
+      const seedChild = defaultChild('My Kid');
+      familyData = {
+        email: user.email,
+        tier: 'free',
+        activeChildId: seedChild.id,
+        children: { [seedChild.id]: seedChild }
+      };
+      await setDoc(familyRef, familyData);
+    }
+
+    // Live sync: any change (from this device or another) re-renders.
+    onSnapshot(familyRef, (docSnap) => {
+      if (!docSnap.exists()) return;
+      familyData = docSnap.data();
+      activeChildId = familyData.activeChildId || Object.keys(familyData.children || {})[0];
+      render();
+    });
+
+    els.authScreen.classList.add('hidden');
+    els.appScreen.classList.remove('hidden');
+  });
+
+  async function saveFamily() {
+    await setDoc(familyRef, familyData);
+  }
+
+  // ---------------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------------
+  function activeChild() {
+    return familyData && familyData.children ? familyData.children[activeChildId] : null;
+  }
+
+  function isPremium() {
+    return familyData && familyData.tier === 'premium';
+  }
+
+  function render() {
+    const child = activeChild();
+    if (!child) return;
+
+    document.getElementById('child-emoji').textContent = child.emoji || '🧑';
+    document.getElementById('child-name-display').textContent = `${child.name}'s Missions`;
+
+    // Tier banners
+    document.getElementById('tier-banner-free').classList.toggle('hidden', isPremium());
+    document.getElementById('tier-banner-premium').classList.toggle('hidden', !isPremium());
+    document.getElementById('bonus-section').classList.toggle('hidden', !isPremium());
+    document.getElementById('feats-locked-panel').classList.toggle('hidden', isPremium());
+
+    renderChildSwitcher();
+    renderTasks();
+    if (isPremium()) renderFeats();
+    updateNowBanner();
+  }
+
+  function renderChildSwitcher() {
+    const wrap = document.getElementById('child-switcher');
+    wrap.innerHTML = '';
+    const children = Object.values(familyData.children || {});
+    children.forEach((c) => {
+      const pill = document.createElement('div');
+      pill.className = 'child-pill' + (c.id === activeChildId ? ' active' : '');
+      pill.innerHTML = `<span>${c.emoji}</span><span>${escapeHtml(c.name)}</span>`;
+      pill.addEventListener('click', () => {
+        activeChildId = c.id;
+        familyData.activeChildId = c.id;
+        saveFamily();
+      });
+      wrap.appendChild(pill);
+    });
+    const addPill = document.createElement('div');
+    addPill.className = 'child-pill';
+    addPill.innerHTML = `<span class="add-icon">➕</span><span>${isPremium() ? 'Add Kid' : 'Add Kid 🔒'}</span>`;
+    addPill.addEventListener('click', () => {
+      if (!isPremium()) { openUpgradeModal('Adding more than one child is a Premium feature.'); return; }
+      openAddChildModal();
+    });
+    wrap.appendChild(addPill);
+  }
+
+  function timeToMinutes(t) {
+    if (!t) return 0;
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  function formatTime(t) {
+    if (!t) return '';
+    let [h, m] = t.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12; if (h === 0) h = 12;
+    return `${h}:${String(m).padStart(2, '0')} ${ampm}`;
+  }
+
+  function renderTasks() {
+    const child = activeChild();
+    const log = (child.logs && child.logs[todayKey()]) || { tasks: {}, feats: {} };
+    const list = document.getElementById('task-list');
+    list.innerHTML = '';
+
+    const tasks = [...child.tasks].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+    let completed = 0;
+
+    tasks.forEach((task) => {
+      const done = !!log.tasks[task.id];
+      if (done) completed++;
+      const card = document.createElement('div');
+      card.className = 'task-card' + (done ? ' completed' : '');
+      card.dataset.taskId = task.id;
+      card.innerHTML = `
+        <div class="time-tag">${formatTime(task.time)}</div>
+        <div class="task-emoji">${task.emoji || '⭐'}</div>
+        <div class="task-info">
+          <div class="task-title">${escapeHtml(task.title)}</div>
+          <div class="task-desc">${escapeHtml(task.desc || '')}</div>
+        </div>
+        <div class="check-circle">✓</div>
+      `;
+      card.addEventListener('click', (evt) => toggleTask(task.id, evt));
+      list.appendChild(card);
+    });
+
+    document.getElementById('progress-text').textContent = `${completed} / ${tasks.length} Done`;
+    document.getElementById('progress-bar').style.width = tasks.length ? `${Math.round((completed / tasks.length) * 100)}%` : '0%';
+  }
+
+  function renderFeats() {
+    const child = activeChild();
+    const log = (child.logs && child.logs[todayKey()]) || { tasks: {}, feats: {} };
+    const grid = document.getElementById('bonus-grid');
+    grid.innerHTML = '';
+    let earned = 0;
+    child.feats.forEach((feat) => {
+      const active = !!log.feats[feat.id];
+      if (active) earned++;
+      const badge = document.createElement('div');
+      badge.className = 'bonus-badge' + (active ? ' active' : '');
+      badge.innerHTML = `<div class="bonus-icon">${feat.icon}</div><div class="bonus-name">${escapeHtml(feat.name)}</div>`;
+      badge.addEventListener('click', (evt) => toggleFeat(feat.id, evt));
+      grid.appendChild(badge);
+    });
+    document.getElementById('feat-count').textContent = `${earned} / ${child.feats.length}`;
+    document.getElementById('feat-bar').style.width = child.feats.length ? `${Math.round((earned / child.feats.length) * 100)}%` : '0%';
+  }
+
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str == null ? '' : str;
+    return d.innerHTML;
+  }
+
+  // ---------------------------------------------------------------------
+  // Toggling tasks / feats (writes back into the single family doc)
+  // ---------------------------------------------------------------------
+  async function toggleTask(taskId, evt) {
+    const child = activeChild();
+    const key = todayKey();
+    if (!child.logs) child.logs = {};
+    if (!child.logs[key]) child.logs[key] = { tasks: {}, feats: {} };
+    const wasDone = !!child.logs[key].tasks[taskId];
+    child.logs[key].tasks[taskId] = !wasDone;
+    if (navigator.vibrate) navigator.vibrate(40);
+
+    if (!wasDone) {
+      popCard(taskId);
+      const doneCount = Object.values(child.logs[key].tasks).filter(Boolean).length;
+      const allDone = doneCount === child.tasks.length;
+      if (isPremium()) {
+        if (allDone) {
+          burstFullScreen(110);
+          showHype(randomFrom(BIG_HYPE_MESSAGES), true);
+          playFanfare();
+        } else {
+          burstFromEvent(evt, 28);
+          showHype(randomFrom(HYPE_MESSAGES), false);
+          playTaskChime();
+        }
+      }
+    }
+    renderTasks();
+    await saveFamily();
+  }
+
+  async function toggleFeat(featId, evt) {
+    if (!isPremium()) return;
+    const child = activeChild();
+    const key = todayKey();
+    if (!child.logs) child.logs = {};
+    if (!child.logs[key]) child.logs[key] = { tasks: {}, feats: {} };
+    const wasActive = !!child.logs[key].feats[featId];
+    child.logs[key].feats[featId] = !wasActive;
+    if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+    if (!wasActive) { burstFromEvent(evt, 20, 2.4); playFeatChime(); }
+    renderFeats();
+    await saveFamily();
+  }
+
+  document.getElementById('reset-btn').addEventListener('click', async () => {
+    if (!confirm('Reset today\'s missions and feats?')) return;
+    const child = activeChild();
+    if (!child.logs) child.logs = {};
+    child.logs[todayKey()] = { tasks: {}, feats: {} };
+    render();
+    await saveFamily();
+  });
+
+  // ---------------------------------------------------------------------
+  // "Do this now" reminder
+  // ---------------------------------------------------------------------
+  function updateNowBanner() {
+    const child = activeChild();
+    const log = (child.logs && child.logs[todayKey()]) || { tasks: {} };
+    const cards = document.querySelectorAll('.task-card');
+    cards.forEach(c => c.classList.remove('current-task'));
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const tasks = [...child.tasks].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+
+    let currentTask = null;
+    for (const t of tasks) {
+      if (!log.tasks[t.id] && timeToMinutes(t.time) <= nowMinutes) { currentTask = t; break; }
+    }
+
+    const banner = document.getElementById('now-banner');
+    if (!currentTask) { banner.classList.remove('show'); return; }
+    const card = document.querySelector(`.task-card[data-task-id="${currentTask.id}"]`);
+    if (card) card.classList.add('current-task');
+    document.getElementById('now-banner-text').textContent = `Do this now: ${currentTask.title}`;
+    banner.classList.add('show');
+  }
+  setInterval(updateNowBanner, 30000);
+
+  // ---------------------------------------------------------------------
+  // Builder screen (Edit Missions / Edit Feats) — Premium only
+  // ---------------------------------------------------------------------
+  document.getElementById('edit-tasks-btn').addEventListener('click', () => {
+    if (!isPremium()) { openUpgradeModal('Customizing missions is a Premium feature — the free plan uses a fixed starter routine.'); return; }
+    openBuilder('tasks');
+  });
+  document.getElementById('edit-feats-btn').addEventListener('click', () => openBuilder('feats'));
+  document.getElementById('builder-back').addEventListener('click', closeBuilder);
+
+  function openBuilder(mode) {
+    builderMode = mode;
+    const child = activeChild();
+    builderDraft = JSON.parse(JSON.stringify(mode === 'tasks' ? child.tasks : child.feats));
+    document.getElementById('builder-title').textContent = mode === 'tasks' ? 'Edit Missions' : 'Edit Feats';
+    document.getElementById('builder-add-btn').textContent = mode === 'tasks' ? '+ Add Mission' : '+ Add Feat';
+    renderBuilder();
+    els.appScreen.classList.add('hidden');
+    els.builderScreen.classList.remove('hidden');
+  }
+
+  function closeBuilder() {
+    els.builderScreen.classList.add('hidden');
+    els.appScreen.classList.remove('hidden');
+  }
+
+  function renderBuilder() {
+    const list = document.getElementById('builder-list');
+    list.innerHTML = '';
+    builderDraft.forEach((item, idx) => {
+      const row = document.createElement('div');
+      row.className = 'builder-row';
+      if (builderMode === 'tasks') {
+        row.innerHTML = `
+          <div class="builder-row-main">
+            <div class="builder-row-fields">
+              <input class="field-input" data-field="title" placeholder="Mission name" value="${escapeAttr(item.title)}">
+              <input class="field-input" data-field="time" type="time" value="${escapeAttr(item.time)}">
+            </div>
+            <div class="builder-row-fields full">
+              <input class="field-input" data-field="desc" placeholder="Short description" value="${escapeAttr(item.desc || '')}">
+            </div>
+            <div class="builder-row-fields full">
+              <input class="field-input" data-field="emoji" placeholder="Emoji (e.g. ⚡)" value="${escapeAttr(item.emoji || '')}" maxlength="4">
+            </div>
+          </div>
+          <button class="row-remove" data-idx="${idx}">✕</button>
+        `;
+      } else {
+        row.innerHTML = `
+          <div class="builder-row-main">
+            <div class="builder-row-fields">
+              <input class="field-input" data-field="name" placeholder="Feat name" value="${escapeAttr(item.name)}">
+              <input class="field-input" data-field="icon" placeholder="Icon" value="${escapeAttr(item.icon || '')}" maxlength="4">
+            </div>
+          </div>
+          <button class="row-remove" data-idx="${idx}">✕</button>
+        `;
+      }
+      row.querySelectorAll('input').forEach((input) => {
+        input.addEventListener('input', () => {
+          builderDraft[idx][input.dataset.field] = input.value;
+        });
+      });
+      row.querySelector('.row-remove').addEventListener('click', () => {
+        builderDraft.splice(idx, 1);
+        renderBuilder();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  function escapeAttr(str) {
+    return (str == null ? '' : String(str)).replace(/"/g, '&quot;');
+  }
+
+  document.getElementById('builder-add-btn').addEventListener('click', () => {
+    if (builderMode === 'tasks') {
+      builderDraft.push({ id: makeId(), time: '12:00', emoji: '⭐', title: 'New Mission', desc: '' });
+    } else {
+      builderDraft.push({ id: makeId(), icon: '⭐', name: 'New Feat' });
+    }
+    renderBuilder();
+  });
+
+  document.getElementById('builder-save-btn').addEventListener('click', async () => {
+    const child = activeChild();
+    if (builderMode === 'tasks') child.tasks = builderDraft;
+    else child.feats = builderDraft;
+    await saveFamily();
+    closeBuilder();
+  });
+
+  // ---------------------------------------------------------------------
+  // Add-child modal (premium only, enforced at call site above)
+  // ---------------------------------------------------------------------
+  const EMOJI_CHOICES = ['🧑','👦','👧','🦸','🦸‍♀️','🐯','🐉','🚀','⚡','🌟','🦖','🐨'];
+
+  function openAddChildModal() {
+    const root = document.getElementById('modal-root');
+    let selectedEmoji = EMOJI_CHOICES[0];
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet">
+          <h2>Add a Kid</h2>
+          <p>Each kid gets their own missions and feats.</p>
+          <label class="field-label">Name</label>
+          <input class="field-input" id="new-child-name" placeholder="Kid's name">
+          <label class="field-label">Pick an icon</label>
+          <div class="emoji-grid" id="emoji-grid"></div>
+          <button class="primary-btn" id="save-new-child-btn">Add Kid</button>
+          <button class="link-btn" id="cancel-new-child-btn">Cancel</button>
+        </div>
+      </div>
+    `;
+    const grid = document.getElementById('emoji-grid');
+    EMOJI_CHOICES.forEach((e, i) => {
+      const opt = document.createElement('div');
+      opt.className = 'emoji-opt' + (i === 0 ? ' selected' : '');
+      opt.textContent = e;
+      opt.addEventListener('click', () => {
+        selectedEmoji = e;
+        grid.querySelectorAll('.emoji-opt').forEach(el => el.classList.remove('selected'));
+        opt.classList.add('selected');
+      });
+      grid.appendChild(opt);
+    });
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('cancel-new-child-btn').addEventListener('click', closeModal);
+    document.getElementById('save-new-child-btn').addEventListener('click', async () => {
+      const name = document.getElementById('new-child-name').value.trim() || 'New Kid';
+      const child = defaultChild(name);
+      child.emoji = selectedEmoji;
+      familyData.children[child.id] = child;
+      familyData.activeChildId = child.id;
+      activeChildId = child.id;
+      await saveFamily();
+      closeModal();
+    });
+  }
+
+  function openUpgradeModal(reason) {
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet" style="align-items:center; text-align:center;">
+          <div style="font-size:38px;">⭐</div>
+          <h2>Unlock Premium</h2>
+          <p>${escapeHtml(reason || '')}</p>
+          <p style="font-size:12px;">Real payment isn't wired up yet — this is a placeholder for testing while we build. Use the dev toggle in Settings to preview Premium.</p>
+          <button class="primary-btn" id="close-upgrade-btn" style="width:100%;">Got it</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-upgrade-btn').addEventListener('click', closeModal);
+  }
+
+  document.getElementById('upgrade-btn-1').addEventListener('click', () => openUpgradeModal('Free plan is basic on purpose — Premium unlocks feats, celebrations, more kids and real reminders.'));
+  document.getElementById('upgrade-btn-2').addEventListener('click', () => openUpgradeModal('Epic Feats and celebration effects are a Premium feature.'));
+
+  function closeModal() {
+    document.getElementById('modal-root').innerHTML = '';
+  }
+
+  // ---------------------------------------------------------------------
+  // Settings modal: sign out + dev-only premium toggle (placeholder until
+  // real StoreKit / Play Billing subscriptions are wired up in Phase 5)
+  // ---------------------------------------------------------------------
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet">
+          <h2>Settings</h2>
+          <p>Signed in as ${escapeHtml(currentUser ? currentUser.email : '')}</p>
+          <button class="ghost-btn" id="dev-toggle-tier-btn">🧪 Dev: Toggle Premium (testing only)</button>
+          <button class="ghost-btn danger" id="sign-out-btn">Sign Out</button>
+          <button class="link-btn" id="close-settings-btn">Close</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-settings-btn').addEventListener('click', closeModal);
+    document.getElementById('dev-toggle-tier-btn').addEventListener('click', async () => {
+      familyData.tier = familyData.tier === 'premium' ? 'free' : 'premium';
+      await saveFamily();
+      closeModal();
+    });
+    document.getElementById('sign-out-btn').addEventListener('click', async () => {
+      closeModal();
+      await signOut(auth);
+    });
+  });
+
+  function popCard(taskId) {
+    const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+    if (!card) return;
+    card.classList.remove('pop');
+    void card.offsetWidth;
+    card.classList.add('pop');
+  }
+
+  function randomFrom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  // ---------------------------------------------------------------------
+  // Sound (Web Audio) — unchanged from the prototype, Premium only
+  // ---------------------------------------------------------------------
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+  function playNote(freq, startTime, duration, type, gainPeak) {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.exponentialRampToValueAtTime(gainPeak || 0.25, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.02);
+  }
+  function playTaskChime() {
+    const ctx = getAudioCtx(); if (!ctx) return;
+    const t = ctx.currentTime;
+    playNote(523.25, t, 0.14, 'sine');
+    playNote(783.99, t + 0.1, 0.18, 'sine');
+  }
+  function playFeatChime() {
+    const ctx = getAudioCtx(); if (!ctx) return;
+    const t = ctx.currentTime;
+    playNote(659.25, t, 0.12, 'triangle');
+    playNote(987.77, t + 0.08, 0.2, 'triangle');
+  }
+  function playFanfare() {
+    const ctx = getAudioCtx(); if (!ctx) return;
+    const t = ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((f, i) => playNote(f, t + i * 0.13, 0.22, 'square', 0.18));
+    playNote(1046.5, t + notes.length * 0.13, 0.5, 'sawtooth', 0.15);
+  }
+
+  // ---------------------------------------------------------------------
+  // Confetti — unchanged from the prototype
+  // ---------------------------------------------------------------------
+  const confettiCanvas = document.getElementById('confetti-canvas');
+  const cctx = confettiCanvas.getContext('2d');
+  let confettiParticles = [];
+  let confettiRunning = false;
+  function resizeCanvas() { confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+  const CONFETTI_COLORS = ['#f59e0b', '#facc15', '#10b981', '#3b82f6', '#ec4899', '#ffffff'];
+  function spawnConfetti(x, y, count, spread) {
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.random() * Math.PI * (spread || 1.4)) - (spread || 1.4) / 2 - Math.PI / 2;
+      const speed = 4 + Math.random() * 7;
+      confettiParticles.push({
+        x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        size: 5 + Math.random() * 5, color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+        rotation: Math.random() * Math.PI * 2, rotSpeed: (Math.random() - 0.5) * 0.4,
+        life: 0, maxLife: 70 + Math.random() * 30
+      });
+    }
+    if (!confettiRunning) { confettiRunning = true; requestAnimationFrame(animateConfetti); }
+  }
+  function animateConfetti() {
+    cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    confettiParticles.forEach(p => {
+      p.vy += 0.22; p.x += p.vx; p.y += p.vy; p.rotation += p.rotSpeed; p.life++;
+      const fade = Math.max(0, 1 - p.life / p.maxLife);
+      cctx.save(); cctx.globalAlpha = fade; cctx.translate(p.x, p.y); cctx.rotate(p.rotation);
+      cctx.fillStyle = p.color; cctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6); cctx.restore();
+    });
+    confettiParticles = confettiParticles.filter(p => p.life < p.maxLife && p.y < confettiCanvas.height + 40);
+    if (confettiParticles.length > 0) requestAnimationFrame(animateConfetti);
+    else { confettiRunning = false; cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height); }
+  }
+  function burstFromEvent(evt, count, spread) {
+    let x = window.innerWidth / 2, y = window.innerHeight / 3;
+    if (evt && evt.currentTarget && evt.currentTarget.getBoundingClientRect) {
+      const r = evt.currentTarget.getBoundingClientRect();
+      x = r.left + r.width / 2; y = r.top + r.height / 2;
+    }
+    spawnConfetti(x, y, count || 26, spread);
+  }
+  function burstFullScreen(count) {
+    const n = count || 90;
+    for (let i = 0; i < n; i++) spawnConfetti(Math.random() * confettiCanvas.width, -10 - Math.random() * 60, 1, 3);
+  }
+
+  const HYPE_MESSAGES = [
+    'OI OI, SEND IT! 🔥', 'Deadset legend! 💪', 'You flamed that one! 🚀', 'Absolute unit! 😤',
+    'Cooked it — the good way! 🍗', "She's done, easy! ✅", 'Big dog energy! 🐕', 'Certified weapon! ⚡',
+    'Get around it! 🙌', "That's a wrap, big lad! 🎉", 'Full sender, no brakes! 🏁', 'Too easy, champion! 👊',
+    "You're cooking today! 👨‍🍳", 'Flat out smashed that! 💥', "Ay, that's the vibe! 😎", 'Absolute scenes! 🎊'
+  ];
+  const BIG_HYPE_MESSAGES = [
+    'FULL SEND — MISSION COMPLETE, LEGEND! 🏆🔥', "IT'S COOKED, IT'S DONE, YOU'RE A WEAPON! 🏆⚡",
+    'DEADSET CHAMPION — DAY UNLOCKED! 🚲🏆', 'DAY = SMASHED. GO GET AMONGST IT! 🏆🎉'
+  ];
+
+  const hypeToast = document.getElementById('hype-toast');
+  let hypeTimer = null;
+  function showHype(text, big) {
+    clearTimeout(hypeTimer);
+    hypeToast.textContent = text;
+    hypeToast.classList.toggle('big', !!big);
+    hypeToast.classList.remove('show');
+    void hypeToast.offsetWidth;
+    hypeToast.classList.add('show');
+    hypeTimer = setTimeout(() => hypeToast.classList.remove('show'), big ? 3200 : 2000);
+  }
+</script>
+</body>
+</html>
