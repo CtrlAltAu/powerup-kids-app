@@ -1,0 +1,529 @@
+<title>PowerUp Kids vs. The Field</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root {
+    --bg: #F4F6F5;
+    --surface: #FFFFFF;
+    --surface-2: #EDF1EE;
+    --ink: #16241F;
+    --ink-soft: #47584F;
+    --ink-faint: #7C8C84;
+    --border: #DCE3DF;
+    --teal: #0F6B5C;
+    --teal-soft: #E4F0EC;
+    --amber: #B8631F;
+    --amber-soft: #FBF0E4;
+    --red-soft: #FBEAE7;
+    --red: #A63D2E;
+    --shadow: 0 1px 2px rgba(22,36,31,0.04), 0 8px 24px -12px rgba(22,36,31,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0F1613;
+      --surface: #17211D;
+      --surface-2: #1D2822;
+      --ink: #E8EDE9;
+      --ink-soft: #ABBAB3;
+      --ink-faint: #7C8C84;
+      --border: #283530;
+      --teal: #52C4A8;
+      --teal-soft: #16302A;
+      --amber: #E39F5C;
+      --amber-soft: #322416;
+      --red-soft: #34201C;
+      --red: #E2897A;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1613;
+    --surface: #17211D;
+    --surface-2: #1D2822;
+    --ink: #E8EDE9;
+    --ink-soft: #ABBAB3;
+    --ink-faint: #7C8C84;
+    --border: #283530;
+    --teal: #52C4A8;
+    --teal-soft: #16302A;
+    --amber: #E39F5C;
+    --amber-soft: #322416;
+    --red-soft: #34201C;
+    --red: #E2897A;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--teal); }
+  ::selection { background: var(--teal-soft); }
+
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  header.masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding-bottom: 36px;
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--teal);
+  }
+  h1.title {
+    font-family: "Fraunces", Georgia, serif;
+    font-optical-sizing: auto;
+    font-weight: 500;
+    font-size: clamp(34px, 5vw, 50px);
+    line-height: 1.06;
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .dek {
+    font-size: 18px;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+
+  section { margin: 64px 0; }
+  section:first-of-type { margin-top: 0; }
+
+  .section-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 26px; }
+  .section-num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+  }
+  h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 500;
+    font-size: 28px;
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.005em;
+  }
+  h3 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 500;
+    font-size: 19px;
+    margin: 0 0 8px;
+  }
+  p { margin: 0 0 14px; max-width: 68ch; }
+  p:last-child { margin-bottom: 0; }
+  .lede { font-size: 17px; color: var(--ink-soft); max-width: 66ch; }
+
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+  @media (max-width: 720px) { .split { grid-template-columns: 1fr; } }
+
+  .diag-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+  }
+  .diag-card .tag {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+    margin-bottom: 12px;
+  }
+  .tag.adhd { background: var(--teal-soft); color: var(--teal); }
+  .tag.asd { background: var(--amber-soft); color: var(--amber); }
+  .diag-card ul { margin: 0; padding-left: 18px; }
+  .diag-card li { margin-bottom: 8px; color: var(--ink-soft); }
+  .diag-card li:last-child { margin-bottom: 0; }
+  .diag-card li b { color: var(--ink); font-weight: 600; }
+
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 22px;
+  }
+  @media (max-width: 620px) { .stat-strip { grid-template-columns: 1fr; } }
+  .stat {
+    background: var(--surface);
+    padding: 18px 20px;
+  }
+  .stat .num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--teal);
+  }
+  .stat .lbl { font-size: 12.5px; color: var(--ink-faint); margin-top: 4px; }
+
+  blockquote {
+    margin: 22px 0 0;
+    padding: 4px 0 4px 20px;
+    border-left: 3px solid var(--teal);
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 18px;
+    font-style: italic;
+    color: var(--ink-soft);
+    max-width: 62ch;
+  }
+  blockquote cite {
+    display: block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-style: normal;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    margin-top: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  .map-row {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: 0 28px;
+    padding: 20px 0;
+    border-top: 1px solid var(--border);
+    align-items: start;
+  }
+  .map-row:last-child { border-bottom: 1px solid var(--border); }
+  @media (max-width: 720px) { .map-row { grid-template-columns: 1fr; gap: 10px; } }
+  .map-hurdle .kicker { font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px; }
+  .map-hurdle p { color: var(--ink-soft); font-size: 14.5px; }
+  .map-answer {
+    background: var(--teal-soft);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .map-answer .kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--teal); margin-bottom: 5px; }
+  .map-answer p { font-size: 14.5px; color: var(--ink); margin: 0; }
+  .map-row.gap .map-answer { background: var(--red-soft); }
+  .map-row.gap .map-answer .kicker { color: var(--red); }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; min-width: 680px; background: var(--surface); }
+  th, td { text-align: left; padding: 13px 16px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 14px; }
+  th { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface-2); }
+  tr:last-child td { border-bottom: none; }
+  td.app { font-weight: 700; }
+  td.price { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink-soft); }
+  td.gap { color: var(--red); }
+  tr.us td { background: var(--teal-soft); }
+  tr.us td.app { color: var(--teal); }
+
+  .edge-list { display: flex; flex-direction: column; gap: 16px; }
+  .edge {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 14px;
+    padding: 4px 0;
+  }
+  .edge .mark { color: var(--teal); font-family: "Fraunces", Georgia, serif; font-size: 20px; font-weight: 600; }
+  .edge h3 { font-size: 16.5px; margin-bottom: 4px; }
+  .edge p { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
+
+  .rec-list { display: flex; flex-direction: column; gap: 0; }
+  .rec {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: 20px;
+    padding: 22px 0;
+    border-top: 1px solid var(--border);
+  }
+  .rec:last-child { border-bottom: 1px solid var(--border); }
+  @media (max-width: 620px) { .rec { grid-template-columns: 1fr; gap: 8px; } }
+  .rec .priority { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 0; }
+  .rec .priority.now { color: var(--teal); }
+  .rec .priority.next { color: var(--amber); }
+  .rec .priority.later { color: var(--ink-faint); }
+  .rec h3 { margin-bottom: 6px; }
+  .rec p { font-size: 14.5px; color: var(--ink-soft); }
+  .rec .cite { font-size: 12.5px; color: var(--ink-faint); margin-top: 6px; }
+
+  .callout {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    margin-top: 8px;
+  }
+  .callout b { color: var(--ink); }
+
+  footer {
+    margin-top: 72px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+  footer a { color: var(--ink-faint); text-decoration: underline; }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="eyebrow">Field Report · Prepared for Tim</span>
+    <h1 class="title">PowerUp Kids vs. The Field</h1>
+    <p class="dek">A grounded read against what the research actually says ADHD and autistic kids' families struggle with day to day, and against the apps already trying to solve it — where five builds in one day already land, and what's worth doing next.</p>
+    <div class="meta-row">
+      <span>August 25, 2026</span>
+      <span>·</span>
+      <span>Sources cited inline, primary literature where it exists</span>
+    </div>
+  </header>
+
+  <section id="hurdles">
+    <div class="section-head">
+      <span class="section-num">01 — The Research</span>
+      <h2>Two diagnoses, two different problems</h2>
+      <p class="lede">ADHD and autism get grouped together constantly in app marketing. The actual research says they break down almost opposite ways — which matters, because a mechanism that helps one can be neutral or even counterproductive for the other.</p>
+    </div>
+
+    <div class="split">
+      <div class="diag-card">
+        <span class="tag adhd">ADHD</span>
+        <h3>The struggle is self-regulation, not the routine itself</h3>
+        <ul>
+          <li><b>Mornings and homework</b> are specifically where it breaks down — not evening or meal routines.</li>
+          <li>Kids show <b>more frustration</b> completing routines than neurotypical peers doing the same tasks.</li>
+          <li>They receive <b>more parental reprimands</b> along the way — which becomes its own feedback loop.</li>
+          <li>Underlying issue is <b>planning and time-management</b>, not unwillingness.</li>
+          <li>Families report needing <b>continuous supervision</b>, more impatience, and being <b>late for work</b> more often.</li>
+        </ul>
+      </div>
+      <div class="diag-card">
+        <span class="tag asd">Autism</span>
+        <h3>The struggle is the transition, not the task</h3>
+        <ul>
+          <li>One 2026 study found routine <b>execution itself</b> comparable to neurotypical kids — comparable frustration, no gap in morning/meal/evening completion.</li>
+          <li>The much larger body of work on autism specifically points to <b>moving between activities</b> as the friction point, not doing any one activity.</li>
+          <li><b>Unpredictability</b> is the trigger — abstract time concepts and sudden change, not the task's difficulty.</li>
+          <li><b>Visual timers</b> that show time physically disappearing measurably help.</li>
+          <li><b>First/then sequencing</b> and advance notice reduce transition time and challenging behavior.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat"><div class="num">η²=.10</div><div class="lbl">effect size, ADHD morning-routine difficulty vs. neurotypical</div></div>
+      <div class="stat"><div class="num">p&lt;.01</div><div class="lbl">significance, family-climate stress in ADHD households</div></div>
+      <div class="stat"><div class="num">n=205</div><div class="lbl">children studied, ages 6–12, ADHD/ASD/neurotypical</div></div>
+    </div>
+
+    <blockquote>
+      "ADHD families reported substantially greater stress... needed continuous supervision, showed increased impatience, and experienced more stressful and unpleasant family climates."
+      <cite>Frontiers in Child and Adolescent Psychiatry, 2026 — family routine execution study</cite>
+    </blockquote>
+    <blockquote>
+      "The use of a visual timer helped a student with autism transition successfully" by showing remaining time as a physically disappearing section.
+      <cite>Indiana Resource Center for Autism — transition strategies</cite>
+    </blockquote>
+  </section>
+
+  <section id="mapping">
+    <div class="section-head">
+      <span class="section-num">02 — The Mapping</span>
+      <h2>Where the app already answers this — and where it doesn't yet</h2>
+      <p class="lede">Reading today's build (and everything before it) against those two hurdle profiles specifically, not against "ADHD/autism" as one blended thing.</p>
+    </div>
+
+    <div class="map-row">
+      <div class="map-hurdle"><div class="kicker">ADHD · Reprimand loop</div><p>Continuous supervision and reprimands during routines create a negative feedback cycle that compounds frustration.</p></div>
+      <div class="map-answer"><div class="kicker">Already built</div><p>Instant celebration + points on every standard mission, plus a single end-of-window nudge to the parent instead of constant supervision — the whole design brief from the start was "don't let this become more nagging."</p></div>
+    </div>
+    <div class="map-row">
+      <div class="map-hurdle"><div class="kicker">ADHD · Planning &amp; time management</div><p>The deficit is executive function, not motivation — kids need external structure, not more willpower asked of them.</p></div>
+      <div class="map-answer"><div class="kicker">Already built</div><p>Time-ordered mission list with a "current task" highlight and per-task nudge toast — the app carries the planning load instead of asking the kid to hold it in their head.</p></div>
+    </div>
+    <div class="map-row">
+      <div class="map-hurdle"><div class="kicker">ADHD/ASD · Kids who "don't do a lot" need to feel rewarded too</div><p>A reward curve that only pays off for high-effort kids teaches low-effort kids that trying doesn't matter.</p></div>
+      <div class="map-answer"><div class="kicker">Built today</div><p>The level curve was explicitly re-tuned so a couple of tasks ever already reaches Level 2–3 — the fast early payoff is deliberate, not a side effect.</p></div>
+    </div>
+    <div class="map-row">
+      <div class="map-hurdle"><div class="kicker">Parent trust</div><p>A reward system a kid can trigger without doing anything erodes the exact trust the app exists to build.</p></div>
+      <div class="map-answer"><div class="kicker">Built today</div><p>Epic Feats now require a parent to confirm before the bonus points post — a lighter-touch trust mechanism than a reprimand, on top of the existing anti-cheat ledger that already stops checkbox-farming on standard missions.</p></div>
+    </div>
+    <div class="map-row">
+      <div class="map-hurdle"><div class="kicker">Clinical hand-off</div><p>The family-climate-stress data point in the research is exactly what a parent needs to be able to hand to an OT or paediatrician — but raw stress isn't a deliverable.</p></div>
+      <div class="map-answer"><div class="kicker">Built today</div><p>Self-reported mood/focus/energy check-ins now feed a Progress Report with a real PDF export — closing the loop from "we're struggling" to "here's the data" that almost nothing else in this space does.</p></div>
+    </div>
+    <div class="map-row gap">
+      <div class="map-hurdle"><div class="kicker">Autism · Transition predictability</div><p>The literature is specific here: it's not the schedule, it's the moment of switching — and a visual, physically-shrinking countdown is the single most evidence-backed tool for it.</p></div>
+      <div class="map-answer"><div class="kicker">Gap — see recommendations</div><p>The current nudge is a toast notification at the moment a task is due. There's no visual countdown building up to that moment, which is specifically what the transitions research calls out as the mechanism that works.</p></div>
+    </div>
+  </section>
+
+  <section id="field">
+    <div class="section-head">
+      <span class="section-num">03 — The Field</span>
+      <h2>Who else a parent finds when they search for this</h2>
+      <p class="lede">Not a strawman lineup — these are the actual apps that come up in ADHD/autism and family-chore searches right now, with real pricing.</p>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>App</th><th>Price</th><th>What it actually is</th><th>Where it falls short here</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="app">Joon</td>
+            <td class="price">$12.99/mo</td>
+            <td>Virtual-pet chore app, clinician-informed, ages 6–11. The closest direct competitor.</td>
+            <td class="gap">Free tier capped at 7 quests/day; no clinical report to hand anyone; kids age out fast</td>
+          </tr>
+          <tr>
+            <td class="app">Goally</td>
+            <td class="price">$380 device + $9/mo</td>
+            <td>Dedicated tablet, 20+ life-skills video-lesson apps, therapist-recommended, ESA-eligible in 10+ states.</td>
+            <td class="gap">Requires buying proprietary hardware; strength is skill-building videos, not behavioral/wellbeing data</td>
+          </tr>
+          <tr>
+            <td class="app">Sense</td>
+            <td class="price">$6.99/mo</td>
+            <td>Bundles chores into named routines instead of a flat list; explicitly ADHD-positioned.</td>
+            <td class="gap">No gamification depth, no clinical reporting, launched 2025 — thin track record</td>
+          </tr>
+          <tr>
+            <td class="app">S'moresUp</td>
+            <td class="price">$7.99/mo</td>
+            <td>Points, badges, smart-home integration for tech-forward households.</td>
+            <td class="gap">Heavy setup, and by its own reviewers' account the novelty wears off quickly</td>
+          </tr>
+          <tr>
+            <td class="app">Skylight Chores</td>
+            <td class="price">$380 device + $79/yr</td>
+            <td>Wall-mounted picture-based chore display.</td>
+            <td class="gap">Flat list, not routines; hardware-locked to one room</td>
+          </tr>
+          <tr>
+            <td class="app">BusyKid / Greenlight</td>
+            <td class="price">$4–15/mo</td>
+            <td>Kids' debit cards with a chore tracker bolted on for financial-literacy families.</td>
+            <td class="gap">Money-first product; chores are the secondary feature, not the point</td>
+          </tr>
+          <tr>
+            <td class="app">Habitica / Routinery</td>
+            <td class="price">$4–5/mo</td>
+            <td>General-audience gamified habit trackers, not built for kids or either diagnosis.</td>
+            <td class="gap">No age-appropriateness, no parent role, no clinical angle at all</td>
+          </tr>
+          <tr>
+            <td class="app">Cozi</td>
+            <td class="price">Free / $39/yr</td>
+            <td>Shared family calendar with recurring to-dos.</td>
+            <td class="gap">Zero motivation mechanism — pure coordination tool</td>
+          </tr>
+          <tr class="us">
+            <td class="app">PowerUp Kids</td>
+            <td class="price">Free / TBD Premium</td>
+            <td>Everything above, aimed specifically at the ADHD/autism hurdle profile.</td>
+            <td>Newest entrant — no track record yet, which every line above started at too</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="edges">
+    <div class="section-head">
+      <span class="section-num">04 — The Edges</span>
+      <h2>Where that actually puts this app ahead</h2>
+    </div>
+    <div class="edge-list">
+      <div class="edge"><span class="mark">＋</span><div><h3>A free tier that's actually a product</h3><p>Not Joon's 7-quests-a-day teaser or a $380 hardware purchase before a parent can even try it — the core missions are free, full stop.</p></div></div>
+      <div class="edge"><span class="mark">＋</span><div><h3>A progression that doesn't run out</h3><p>S'moresUp's own reviewers flag novelty wearing off; Joon gets "outgrown by tweens." A thousand-level curve with five rarity tiers of unlocks was built today specifically so this doesn't happen here.</p></div></div>
+      <div class="edge"><span class="mark">＋</span><div><h3>A verified layer, not just a tapped layer</h3><p>No competitor above requires a second person to confirm a reward before it pays out. The anti-cheat ledger plus today's Epic Feats confirmation queue is a genuinely distinct trust mechanism.</p></div></div>
+      <div class="edge"><span class="mark">＋</span><div><h3>The only one that closes the loop with a professional</h3><p>Only Goally has any clinical positioning, and its version is branded video lessons on its own hardware. Nothing in this field turns mood/focus/energy tracking plus mission data into a PDF a parent can actually hand to an OT.</p></div></div>
+      <div class="edge"><span class="mark">＋</span><div><h3>No hardware, no lock-in</h3><p>Runs on whatever device the family already owns. Goally and Skylight both ask for $380 before day one.</p></div></div>
+      <div class="edge"><span class="mark">＋</span><div><h3>Rewards stay non-monetary on purpose</h3><p>BusyKid and Greenlight turn effort into money, which is a different product with different regulatory overhead. Staying purely in points/levels/unlocks keeps this aligned with the actual therapy guidance behind it — intrinsic motivation, not pay-for-chores.</p></div></div>
+    </div>
+  </section>
+
+  <section id="recs">
+    <div class="section-head">
+      <span class="section-num">05 — Next Phase</span>
+      <h2>What's worth doing before this ships</h2>
+    </div>
+    <div class="rec-list">
+      <div class="rec">
+        <div class="priority now">Now</div>
+        <div>
+          <h3>A visual transition countdown</h3>
+          <p>The single most evidence-backed gap on the board. A shrinking visual timer (and optional soft chime) in the few minutes before a task's scheduled time — not just the toast that fires at the moment it's due. This is a natural extension of the nudge system already built, not a new subsystem.</p>
+          <div class="cite">Grounded in Indiana Resource Center for Autism's transitions research — visual timers measurably reduce transition time and challenging behavior.</div>
+        </div>
+      </div>
+      <div class="rec">
+        <div class="priority next">Next</div>
+        <div>
+          <h3>Consider named routine groupings</h3>
+          <p>Sense's entire pitch is bundling tasks into labeled routines ("Morning," "Bedtime") instead of a flat time-ordered list. The current mission list already reads as one implicit routine via time-ordering — this is a lighter lift than it sounds, and worth a look once the countdown work lands, not before.</p>
+        </div>
+      </div>
+      <div class="rec">
+        <div class="priority next">Next</div>
+        <div>
+          <h3>Lean into the clinician hand-off as the actual pitch</h3>
+          <p>It's the clearest edge over everything except Goally. Getting even one OT or psychologist to look at the Progress Report format before launch — and eventually exploring anything like Goally's ESA-eligibility angle — turns a nice feature into the headline differentiator.</p>
+        </div>
+      </div>
+      <div class="rec">
+        <div class="priority later">Deliberately not doing</div>
+        <div>
+          <h3>Smart-home integration or real-money rewards</h3>
+          <p>Both pull toward S'moresUp's or BusyKid's lane, which is a different product with a different value proposition. Chasing either dilutes the clinical/intrinsic-motivation positioning that's the actual reason this app is different from the field above.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>One honest caveat: the 2026 Frontiers study found autistic kids' routine <em>execution</em> comparable to neurotypical peers in that specific sample — the transitions-are-the-real-hurdle read comes from the broader, older body of transition research, not that one study. Both are cited above rather than blended into one claim. As with the app's own onboarding tips and Progress Report, this is directional research, not a clinical guarantee.</p>
+  </footer>
+
+</div>
