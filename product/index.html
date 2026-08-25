@@ -946,7 +946,11 @@
     const child = activeChild();
     if (!child) return;
 
-    document.getElementById('child-emoji').textContent = child.emoji || '🧑';
+    // A kid can equip a newly-unlocked icon themselves (see
+    // openIconUnlockModal) — that's stored on childLogsData.equippedEmoji
+    // since it's kid-writable, and takes priority here over the
+    // parent-set child.emoji whenever it's present.
+    document.getElementById('child-emoji').textContent = (childLogsData && childLogsData.equippedEmoji) || child.emoji || '🧑';
     document.getElementById('child-name-display').textContent = `${child.name}'s Missions`;
 
     // Tier banners
@@ -994,7 +998,6 @@
     return Math.pow((level - 1) / LEVEL_CURVE_COEF, 1 / LEVEL_CURVE_EXP);
   }
 
-  const LEVEL_UP_BONUS_MINUTES = 5;
   const TIER_LABEL = { common: '', rare: '✨ Rare ', epic: '🌟 EPIC ', legendary: '👑 LEGENDARY ', mythic: '🌈 MYTHIC ' };
   const TIER_COLOR = { common: '#94a3b8', rare: '#38bdf8', epic: '#a78bfa', legendary: '#facc15', mythic: '#fb7185' };
 
@@ -1010,9 +1013,10 @@
       const today = todayKey();
       if (!childLogsData.logs) childLogsData.logs = {};
       if (!childLogsData.logs[today]) childLogsData.logs[today] = { tasks: {}, feats: {} };
-      // The bonus-minutes mechanic always applies, regardless of source —
-      // only whether the toast *announces* it changes below.
-      childLogsData.logs[today].bonusGameMinutes = (childLogsData.logs[today].bonusGameMinutes || 0) + LEVEL_UP_BONUS_MINUTES;
+      // Leveling up used to also grant bonus game minutes automatically —
+      // removed. Game time is meant to be fully governed by whatever the
+      // parent set in Game Rules; an automatic top-up on every level-up
+      // quietly grew that budget past the limit the parent chose.
       const unlocked = REWARD_EMOJI.filter(r => r.level > beforeLevel && r.level <= afterLevel);
       const iconText = unlocked.length
         ? ` New icon unlocked: ${unlocked.map(r => `${TIER_LABEL[r.tier] || ''}${r.emoji}`).join(' ')}!`
@@ -1022,16 +1026,10 @@
       const rewardText = customReward ? ` 🎁 You earned: ${customReward.reward}!` : '';
       const milestoneText = afterLevel === 1000 ? ' 🏆 ULTIMATE CHAMPION — LEVEL 1000!!! 🏆' : '';
       const secretGameText = checkSecretGameMilestone(afterLevel);
-      // A level-up earned mid-game still banks its bonus game minutes, but
-      // we deliberately don't *announce* more game time right as a kid is
-      // finishing a game session — that fights against steering them back
-      // to missions. Level-ups earned from tasks/feats keep announcing it,
-      // since "do missions, earn game time" is the loop we want reinforced.
-      const bonusText = source === 'game' ? '' : ` +${LEVEL_UP_BONUS_MINUTES} bonus game minutes today!`;
       const closingText = source === 'game' ? ' Awesome playing — now let’s go knock out a mission! 💪' : '';
       setTimeout(() => {
         burstFullScreen(140);
-        showHype(`🎉 LEVEL ${afterLevel} UNLOCKED!${bonusText}${iconText}${rewardText}${milestoneText}${secretGameText}${closingText}`, true);
+        showHype(`🎉 LEVEL ${afterLevel} UNLOCKED!${iconText}${rewardText}${milestoneText}${secretGameText}${closingText}`, true);
         playFanfare();
         if (unlocked.length) {
           setTimeout(() => openIconUnlockModal(unlocked), 1400);
@@ -1057,6 +1055,14 @@
   // (see finishGameRound/addPoints), and we don't want to blow that away —
   // so this stacks its own overlay on top instead, leaving whatever's
   // already open untouched underneath.
+  //
+  // Important: this writes to childLogsData (equippedEmoji), NOT to
+  // child.emoji on the family doc. The Firestore rules only let a kid's
+  // linked device write its own childLogs doc — not the family doc, which
+  // is deliberately parent-write-only so a kid can't touch tasks/feats/
+  // settings. Writing straight to child.emoji here silently failed on a
+  // kid's own device (permission denied, no error surfaced) — this is
+  // the fix. render() below prefers equippedEmoji when present.
   function openIconUnlockModal(unlocked) {
     if (!unlocked || !unlocked.length) return;
     const child = activeChild();
@@ -1093,8 +1099,9 @@
     overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss(); });
     overlay.querySelector('#skip-icon-btn').addEventListener('click', dismiss);
     overlay.querySelector('#equip-icon-btn').addEventListener('click', async () => {
-      child.emoji = selected;
-      await saveFamily();
+      if (!childLogsData) childLogsData = { logs: {} };
+      childLogsData.equippedEmoji = selected;
+      await saveChildLogs();
       render();
       dismiss();
     });
@@ -2066,7 +2073,11 @@
     const child = activeChild();
     const root = document.getElementById('modal-root');
     const tc = transitionCueFor(child);
-    let selectedEmoji = child.emoji;
+    // Prefer whatever the kid last equipped themselves (see
+    // openIconUnlockModal) as the starting selection here, so this screen
+    // reflects what's actually showing — and saving from here harmonizes
+    // child.emoji (the family-doc default) back to match it.
+    let selectedEmoji = (childLogsData && childLogsData.equippedEmoji) || child.emoji;
     let selectedTheme = child.theme || 'aussie';
     let customDraft = child.customHype
       ? { small: (child.customHype.small || []).slice(), big: (child.customHype.big || []).slice() }
@@ -2191,7 +2202,13 @@
         const wasOptedIn = child.globalOptIn;
         child.globalOptIn = document.getElementById('edit-global-optin').checked;
         child.publicNickname = selectedNickname;
+        // Keep the kid's own self-equipped icon (childLogsData.equippedEmoji)
+        // in sync with whatever the parent explicitly picks here — otherwise
+        // render() would keep showing the kid's older self-equip choice
+        // instead of the parent's new one, since it takes priority.
+        if (childLogsData) childLogsData.equippedEmoji = selectedEmoji;
         await saveFamily();
+        await saveChildLogs();
         if (child.globalOptIn) updateLeaderboard(null, 0); // push nickname/level even with no new game score
         else if (wasOptedIn && !child.globalOptIn) removeFromGlobalLeaderboard(child.id);
         render();
@@ -2338,7 +2355,11 @@
   function minutesAllowedToday() {
     const gs = gameSettingsFor(activeChild());
     if (gs.dailyMinutesLimit <= 0) return Infinity;
-    return gs.dailyMinutesLimit + (todaysLog().bonusGameMinutes || 0);
+    // Deliberately just the parent's own limit — leveling up used to add
+    // bonus minutes on top of it automatically, which quietly grew the
+    // daily game budget past whatever the parent set. Removed: game time
+    // is fully governed by Game Rules now, nothing else expands it.
+    return gs.dailyMinutesLimit;
   }
 
   function minutesUsedToday() {
