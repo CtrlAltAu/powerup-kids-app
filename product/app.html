@@ -259,6 +259,32 @@
   }
   .parent-banner button { background: none; border: none; color: #fed7aa; font-weight: 900; cursor: pointer; font-size: 15px; padding: 0 4px; }
 
+  /* ---------- Transition Cue ----------
+     Deliberately calmer than the toasts above: soft lavender/blue instead
+     of the hype-toast's hot amber, a slow fade/slide instead of a bouncy
+     pop-in, and it stays up (with a slowly-shrinking bar) rather than
+     flashing and vanishing — the point is a gentle heads-up, not an alert. */
+  .transition-cue-banner {
+    position: fixed; left: 50%; top: 14px; transform: translate(-50%, -140%);
+    background: linear-gradient(135deg, #312e81, #1e3a5f); border: 1px solid #4c4a9e;
+    border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 75;
+    width: min(92vw, 420px); opacity: 0; padding: 12px 14px 10px;
+    transition: transform 0.6s cubic-bezier(.25,.8,.4,1), opacity 0.6s ease;
+  }
+  .transition-cue-banner.show { transform: translate(-50%, 0); opacity: 1; }
+  .transition-cue-row { display: flex; align-items: center; gap: 8px; }
+  .transition-cue-emoji { font-size: 20px; flex-shrink: 0; }
+  .transition-cue-text { flex: 1; font-size: 12.5px; font-weight: 700; color: #e0e7ff; line-height: 1.35; text-align: left; }
+  .transition-cue-close {
+    background: none; border: none; color: #c7d2fe; font-weight: 900; cursor: pointer;
+    font-size: 14px; padding: 2px 4px; flex-shrink: 0; opacity: 0.7;
+  }
+  .transition-cue-track { margin-top: 8px; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.15); overflow: hidden; }
+  .transition-cue-fill {
+    height: 100%; width: 100%; border-radius: 999px; background: linear-gradient(90deg, #a5b4fc, #818cf8);
+    transition: width linear;
+  }
+
   /* ---------- Daily check-in ---------- */
   .checkin-scale { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
   .checkin-scale-btn {
@@ -972,7 +998,7 @@
   const TIER_LABEL = { common: '', rare: '✨ Rare ', epic: '🌟 EPIC ', legendary: '👑 LEGENDARY ', mythic: '🌈 MYTHIC ' };
   const TIER_COLOR = { common: '#94a3b8', rare: '#38bdf8', epic: '#a78bfa', legendary: '#facc15', mythic: '#fb7185' };
 
-  function addPoints(n) {
+  function addPoints(n, source) {
     if (!isPremium()) return;
     if (!childLogsData) childLogsData = { logs: {} };
     const before = childLogsData.totalPoints || 0;
@@ -984,6 +1010,8 @@
       const today = todayKey();
       if (!childLogsData.logs) childLogsData.logs = {};
       if (!childLogsData.logs[today]) childLogsData.logs[today] = { tasks: {}, feats: {} };
+      // The bonus-minutes mechanic always applies, regardless of source —
+      // only whether the toast *announces* it changes below.
       childLogsData.logs[today].bonusGameMinutes = (childLogsData.logs[today].bonusGameMinutes || 0) + LEVEL_UP_BONUS_MINUTES;
       const unlocked = REWARD_EMOJI.filter(r => r.level > beforeLevel && r.level <= afterLevel);
       const iconText = unlocked.length
@@ -994,10 +1022,20 @@
       const rewardText = customReward ? ` 🎁 You earned: ${customReward.reward}!` : '';
       const milestoneText = afterLevel === 1000 ? ' 🏆 ULTIMATE CHAMPION — LEVEL 1000!!! 🏆' : '';
       const secretGameText = checkSecretGameMilestone(afterLevel);
+      // A level-up earned mid-game still banks its bonus game minutes, but
+      // we deliberately don't *announce* more game time right as a kid is
+      // finishing a game session — that fights against steering them back
+      // to missions. Level-ups earned from tasks/feats keep announcing it,
+      // since "do missions, earn game time" is the loop we want reinforced.
+      const bonusText = source === 'game' ? '' : ` +${LEVEL_UP_BONUS_MINUTES} bonus game minutes today!`;
+      const closingText = source === 'game' ? ' Awesome playing — now let’s go knock out a mission! 💪' : '';
       setTimeout(() => {
         burstFullScreen(140);
-        showHype(`🎉 LEVEL ${afterLevel} UNLOCKED! +${LEVEL_UP_BONUS_MINUTES} bonus game minutes today!${iconText}${rewardText}${milestoneText}${secretGameText}`, true);
+        showHype(`🎉 LEVEL ${afterLevel} UNLOCKED!${bonusText}${iconText}${rewardText}${milestoneText}${secretGameText}${closingText}`, true);
         playFanfare();
+        if (unlocked.length) {
+          setTimeout(() => openIconUnlockModal(unlocked), 1400);
+        }
       }, 900);
     }
     updateLevelChip();
@@ -1009,6 +1047,57 @@
     if (!isPremium()) { chip.classList.add('hidden'); return; }
     chip.classList.remove('hidden');
     chip.textContent = `⭐ Level ${levelFor(getPoints())}`;
+  }
+
+  // Lets a kid pick and immediately wear one of the icon(s) they just
+  // unlocked, right at the moment they level up — instead of only hearing
+  // about it in a toast and having to find their way to the parent-only
+  // Edit Kid Profile screen later. Deliberately NOT built on #modal-root:
+  // a level-up can land while a game's "final score" screen is still open
+  // (see finishGameRound/addPoints), and we don't want to blow that away —
+  // so this stacks its own overlay on top instead, leaving whatever's
+  // already open untouched underneath.
+  function openIconUnlockModal(unlocked) {
+    if (!unlocked || !unlocked.length) return;
+    const child = activeChild();
+    if (!child) return;
+    const existing = document.getElementById('icon-unlock-overlay');
+    if (existing) existing.remove();
+    let selected = unlocked[unlocked.length - 1].emoji;
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay centered';
+    overlay.id = 'icon-unlock-overlay';
+    overlay.innerHTML = `
+      <div class="modal-sheet" style="align-items:center; text-align:center;">
+        <h2>🎉 New Icon${unlocked.length > 1 ? 's' : ''} Unlocked!</h2>
+        <p>Pick the one you want to wear now — you can change it anytime in your profile.</p>
+        <div class="emoji-grid" id="icon-unlock-grid"></div>
+        <button class="primary-btn" id="equip-icon-btn" style="width:100%;">Wear This Icon</button>
+        <button class="link-btn" id="skip-icon-btn">Maybe later</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const grid = overlay.querySelector('#icon-unlock-grid');
+    unlocked.forEach((entry) => {
+      const opt = document.createElement('div');
+      opt.className = 'emoji-opt' + (entry.emoji === selected ? ' selected' : '');
+      opt.textContent = entry.emoji;
+      opt.addEventListener('click', () => {
+        selected = entry.emoji;
+        grid.querySelectorAll('.emoji-opt').forEach(el => el.classList.remove('selected'));
+        opt.classList.add('selected');
+      });
+      grid.appendChild(opt);
+    });
+    const dismiss = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss(); });
+    overlay.querySelector('#skip-icon-btn').addEventListener('click', dismiss);
+    overlay.querySelector('#equip-icon-btn').addEventListener('click', async () => {
+      child.emoji = selected;
+      await saveFamily();
+      render();
+      dismiss();
+    });
   }
 
   // Small popover showing progress toward the next level and the next
@@ -1227,6 +1316,9 @@
       const firstTimeToday = !log.tasksEverDone[taskId];
       if (firstTimeToday) {
         log.tasksEverDone[taskId] = true;
+        // If this was the task the Transition Cue banner was counting down
+        // to, they got there — clear it early instead of leaving it up.
+        if (transitionCueTaskId === taskId) hideTransitionCue();
         const allDoneEver = Object.keys(log.tasksEverDone).length === child.tasks.length;
         if (isPremium()) {
           const pack = hypePackFor(child);
@@ -1955,6 +2047,7 @@
   function openEditKidModal() {
     const child = activeChild();
     const root = document.getElementById('modal-root');
+    const tc = transitionCueFor(child);
     let selectedEmoji = child.emoji;
     let selectedTheme = child.theme || 'aussie';
     let customDraft = child.customHype
@@ -1975,6 +2068,16 @@
             <label class="field-label" style="margin-top:4px;">Hype style</label>
             <p style="margin:-6px 0 4px;">This flavors the celebration messages when they finish missions.</p>
             <div class="theme-grid" id="edit-theme-grid"></div>
+            <label class="field-label" style="margin-top:4px;">🌤️ Transition Cue</label>
+            <p style="margin:-6px 0 4px;">A gentle heads-up (soft sound + a slowly-shrinking bar) a few minutes before ${escapeHtml(child.name)}'s next mission is due — helps build momentum toward switching activities, whether they're mid-game or mid-task, without startling them. Off by default.</p>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700;">
+              <input type="checkbox" id="edit-transition-enabled" ${tc.enabled ? 'checked' : ''} style="width:18px; height:18px;">
+              Turn on Transition Cue
+            </label>
+            <div id="edit-transition-wrap" style="${tc.enabled ? '' : 'display:none;'}">
+              <label class="field-label" style="margin-top:8px;">How many minutes before?</label>
+              <input class="field-input" id="edit-transition-minutes" type="number" min="1" max="15" value="${tc.minutesBefore}">
+            </div>
             <label class="field-label" style="margin-top:4px;">🌍 Worldwide Leaderboard</label>
             <p style="margin:-6px 0 4px;">Opt in to let ${escapeHtml(child.name)} compete on the public worldwide leaderboard. Only the nickname below is ever shown — never their real name.</p>
             <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700;">
@@ -2030,6 +2133,9 @@
 
       document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
       document.getElementById('cancel-edit-kid-btn').addEventListener('click', closeModal);
+      document.getElementById('edit-transition-enabled').addEventListener('change', (e) => {
+        document.getElementById('edit-transition-wrap').style.display = e.target.checked ? '' : 'none';
+      });
       const nicknameGrid = document.getElementById('nickname-options');
       function renderNicknameOptions() {
         nicknameGrid.innerHTML = '';
@@ -2059,6 +2165,11 @@
         child.emoji = selectedEmoji;
         child.theme = selectedTheme;
         if (selectedTheme === 'custom') child.customHype = customDraft;
+        child.transitionCue = {
+          enabled: document.getElementById('edit-transition-enabled').checked,
+          minutesBefore: Math.max(1, Math.min(15, parseInt(document.getElementById('edit-transition-minutes').value, 10) || 3))
+        };
+        if (!child.transitionCue.enabled) { transitionCuedTaskIds.clear(); hideTransitionCue(); }
         const wasOptedIn = child.globalOptIn;
         child.globalOptIn = document.getElementById('edit-global-optin').checked;
         child.publicNickname = selectedNickname;
@@ -2184,7 +2295,25 @@
       tasksRequired: gs.tasksRequired != null ? gs.tasksRequired : 3,
       windowStart: gs.windowStart || '15:00',
       windowEnd: gs.windowEnd || '16:00',
-      dailyMinutesLimit: gs.dailyMinutesLimit != null ? gs.dailyMinutesLimit : 0
+      // Defaults to 1 minute (one full round of one game) rather than
+      // unlimited, so a new kid starts capped and a parent has to
+      // deliberately open it up rather than deliberately lock it down.
+      dailyMinutesLimit: gs.dailyMinutesLimit != null ? gs.dailyMinutesLimit : 1
+    };
+  }
+
+  // ---------------------------------------------------------------------
+  // Transition Cue — a gentle heads-up (visual + audible) a few minutes
+  // before the next mission is due, so a kid gets a chance to start
+  // winding down whatever they're doing (a game, a task, anything) rather
+  // than being surprised into switching. Off by default — a parent turns
+  // it on per-kid in Edit Kid Profile. See showTransitionCue() below.
+  // ---------------------------------------------------------------------
+  function transitionCueFor(child) {
+    const tc = (child && child.transitionCue) || {};
+    return {
+      enabled: !!tc.enabled,
+      minutesBefore: tc.minutesBefore != null ? tc.minutesBefore : 3
     };
   }
 
@@ -2457,6 +2586,15 @@
     if (ssState) { clearTimeout(ssState.moleTimeout); clearInterval(ssState.timerInterval); ssState.running = false; }
   }
 
+  // Deliberately never mentions "more game time" here — the whole point of
+  // this toast is to hand momentum back to missions, not reward more play.
+  const POST_GAME_REDIRECTS = [
+    'Nice playing! Ready to knock out another mission? 🚀',
+    'Great round! Your missions are waiting for you. ⭐',
+    'Awesome — let’s bring that energy back to your tasks! 💪',
+    'Well played! Time to check off another mission. ✅'
+  ];
+
   async function finishGameRound(score, startedAt, label, gameKey) {
     const elapsedMinutes = Math.max(0, (Date.now() - startedAt) / 60000);
     const today = todayKey();
@@ -2465,9 +2603,10 @@
     if (!childLogsData.logs[today]) childLogsData.logs[today] = { tasks: {}, feats: {} };
     childLogsData.logs[today].gameMinutesUsed = (childLogsData.logs[today].gameMinutesUsed || 0) + elapsedMinutes;
     burstFullScreen(60);
-    showHype(`${label}: +${score} points!`, false);
+    const redirect = POST_GAME_REDIRECTS[Math.floor(Math.random() * POST_GAME_REDIRECTS.length)];
+    showHype(`${label}: +${score} points! ${redirect}`, false);
     playFeatChime();
-    addPoints(score);
+    addPoints(score, 'game');
     await saveChildLogs();
     if (gameKey) updateLeaderboard(gameKey, score);
   }
@@ -2701,7 +2840,7 @@
       <div class="modal-overlay centered" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
           <h2>⚡ Power Pop</h2>
-          <p>Tap the bubbles before they vanish — they get faster the longer you go! 60 seconds, go!</p>
+          <p id="game-desc">Tap the bubbles before they vanish — they get faster the longer you go! 60 seconds, go!</p>
           <div class="game-hud" style="width:100%;">
             <span>⏱️ <span id="game-timer">${POWER_POP_SECONDS}</span>s</span>
             <span class="game-score">⭐ <span id="game-score">0</span></span>
@@ -2731,6 +2870,8 @@
     ppState = { score: 0, timeLeft: POWER_POP_SECONDS, running: true, startedAt: Date.now() };
     document.getElementById('game-score').textContent = '0';
     document.getElementById('game-timer').textContent = String(POWER_POP_SECONDS);
+    const descEl = document.getElementById('game-desc');
+    if (descEl) descEl.textContent = 'Tap the bubbles before they vanish — they get faster the longer you go! 60 seconds, go!';
 
     scheduleNextBubble(area);
     ppState.timerInterval = setInterval(() => {
@@ -2788,6 +2929,8 @@
     if (area) area.innerHTML = '';
     const startBtn = document.getElementById('game-start-btn');
     if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
+    const descEl = document.getElementById('game-desc');
+    if (descEl) descEl.textContent = `🏁 Final Score: ${finalScore} bubble${finalScore === 1 ? '' : 's'} popped!`;
     await finishGameRound(finalScore, startedAt, '⚡ Power Pop', 'powerPop');
   }
 
@@ -2922,7 +3065,7 @@
       <div class="modal-overlay centered" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
           <h2>🕹️ Star Smash</h2>
-          <p>Smash the star before it disappears! It gets faster the longer you go. 60 seconds — go!</p>
+          <p id="game-desc">Smash the star before it disappears! It gets faster the longer you go. 60 seconds — go!</p>
           <div class="game-hud" style="width:100%;">
             <span>⏱️ <span id="game-timer">${STAR_SMASH_SECONDS}</span>s</span>
             <span class="game-score">⭐ <span id="game-score">0</span></span>
@@ -2956,6 +3099,8 @@
     startBtn.textContent = 'Playing…';
     document.getElementById('game-score').textContent = '0';
     document.getElementById('game-timer').textContent = String(STAR_SMASH_SECONDS);
+    const descEl = document.getElementById('game-desc');
+    if (descEl) descEl.textContent = 'Smash the star before it disappears! It gets faster the longer you go. 60 seconds — go!';
     document.querySelectorAll('.smash-hole').forEach(h => { h.classList.remove('up'); h.textContent = ''; });
 
     ssState = { score: 0, streak: 0, timeLeft: STAR_SMASH_SECONDS, running: true, startedAt: Date.now(), activeIdx: -1 };
@@ -3017,6 +3162,8 @@
     document.querySelectorAll('.smash-hole').forEach(h => { h.classList.remove('up'); h.textContent = ''; h.onclick = null; });
     const startBtn = document.getElementById('game-start-btn');
     if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
+    const descEl = document.getElementById('game-desc');
+    if (descEl) descEl.textContent = `🏁 Final Score: ${finalScore} star${finalScore === 1 ? '' : 's'} smashed!`;
     await finishGameRound(finalScore, startedAt, '🕹️ Star Smash', 'starSmash');
   }
 
@@ -3113,6 +3260,16 @@
     const notes = [523.25, 659.25, 783.99, 1046.5];
     notes.forEach((f, i) => playNote(f, t + i * 0.13, 0.22, 'square', 0.18));
     playNote(1046.5, t + notes.length * 0.13, 0.5, 'sawtooth', 0.15);
+  }
+  // Deliberately the softest, slowest sound in the app — two low sine tones,
+  // long fade, quiet peak. Used only for the Transition Cue (see
+  // showTransitionCue below), where the whole point is a heads-up that
+  // doesn't startle or overwhelm.
+  function playGentleCue() {
+    const ctx = getAudioCtx(); if (!ctx) return;
+    const t = ctx.currentTime;
+    playNote(392.0, t, 0.5, 'sine', 0.09);
+    playNote(493.88, t + 0.35, 0.6, 'sine', 0.08);
   }
 
   // ---------------------------------------------------------------------
@@ -3332,6 +3489,64 @@
     }
   }
 
+  // ---------------------------------------------------------------------
+  // Transition Cue banner — deliberately NOT the same as the nudge toast
+  // above. It needs to (a) stay up for the whole lead-in window rather
+  // than auto-vanish in a few seconds, (b) show a slowly-shrinking bar so
+  // the countdown is visible at a glance rather than sprung as a surprise,
+  // and (c) sit above literally everything, including an open game modal,
+  // since it has to reach a kid no matter what they're doing. It's built
+  // outside #modal-root (like the icon-unlock overlay) so it never clears
+  // whatever's already on screen underneath it.
+  // ---------------------------------------------------------------------
+  const transitionCuedTaskIds = new Set();
+  let transitionCueTaskId = null;
+  let transitionCueAutoHideTimer = null;
+
+  function showTransitionCue(task, minutesUntil) {
+    const existing = document.getElementById('transition-cue-banner');
+    if (existing) existing.remove();
+    clearTimeout(transitionCueAutoHideTimer);
+    transitionCueTaskId = task.id;
+
+    const banner = document.createElement('div');
+    banner.id = 'transition-cue-banner';
+    banner.className = 'transition-cue-banner';
+    banner.innerHTML = `
+      <div class="transition-cue-row">
+        <span class="transition-cue-emoji">🌤️</span>
+        <span class="transition-cue-text">Almost time to wrap up — ${escapeHtml(task.emoji || '⭐')} ${escapeHtml(task.title)} is coming up soon.</span>
+        <button class="transition-cue-close" id="transition-cue-close" aria-label="Dismiss" type="button">✕</button>
+      </div>
+      <div class="transition-cue-track"><div class="transition-cue-fill" id="transition-cue-fill"></div></div>
+    `;
+    document.body.appendChild(banner);
+    requestAnimationFrame(() => banner.classList.add('show'));
+
+    const fill = document.getElementById('transition-cue-fill');
+    const durationSeconds = Math.max(30, minutesUntil * 60);
+    if (fill) {
+      fill.style.transitionDuration = `${durationSeconds}s`;
+      requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = '0%'; }));
+    }
+
+    playGentleCue();
+    if (navigator.vibrate) navigator.vibrate([35, 70, 35]); // a soft double-tap — noticeably gentler than the sharper task nudge above
+
+    document.getElementById('transition-cue-close').addEventListener('click', hideTransitionCue);
+    transitionCueAutoHideTimer = setTimeout(hideTransitionCue, durationSeconds * 1000 + 3000);
+  }
+
+  function hideTransitionCue() {
+    const banner = document.getElementById('transition-cue-banner');
+    if (banner) {
+      banner.classList.remove('show');
+      setTimeout(() => banner.remove(), 300);
+    }
+    transitionCueTaskId = null;
+    clearTimeout(transitionCueAutoHideTimer);
+  }
+
   async function showParentBanner(child, missingCount) {
     const log = todaysLog();
     log.parentBannerShown = true;
@@ -3364,6 +3579,29 @@
           sendNudge(`⏰ Time for: ${t.emoji || '⭐'} ${t.title}!`);
         }
       });
+
+      // Transition Cue: find whichever undone task is coming up soonest and,
+      // if it's within the configured window, give a gentle heads-up. This
+      // runs on the same always-on interval as the nudges above, so it
+      // fires no matter what's currently on screen — a mini-game modal, an
+      // in-progress task, anything — which is the whole point: the cue is
+      // about the moment coming up next, not about interrupting whatever's
+      // happening right now.
+      const cue = transitionCueFor(child);
+      if (cue.enabled) {
+        const upcoming = child.tasks
+          .filter(t => !(log.tasksEverDone && log.tasksEverDone[t.id]))
+          .map(t => ({ task: t, min: timeToMinutes(t.time) }))
+          .filter(x => x.min > 0)
+          .sort((a, b) => a.min - b.min)[0];
+        if (upcoming) {
+          const minutesUntil = upcoming.min - nowMin;
+          if (minutesUntil > 0 && minutesUntil <= cue.minutesBefore && !transitionCuedTaskIds.has(upcoming.task.id)) {
+            transitionCuedTaskIds.add(upcoming.task.id);
+            showTransitionCue(upcoming.task, minutesUntil);
+          }
+        }
+      }
     }
 
     const lastTaskTime = child.tasks.reduce((max, t) => Math.max(max, timeToMinutes(t.time)), 0);
