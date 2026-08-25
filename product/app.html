@@ -331,6 +331,13 @@
   }
   .pattern-tile.flash { filter: brightness(1.6); transform: scale(1.05); }
   .pattern-tile:active { transform: scale(0.95); }
+  .smash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; height: 100%; padding: 12px; box-sizing: border-box; }
+  .smash-hole {
+    border-radius: 14px; border: none; font-size: 30px; display: flex; align-items: center;
+    justify-content: center; cursor: pointer; background: #1e293b; transition: transform 0.08s;
+  }
+  .smash-hole.up { background: radial-gradient(circle at 35% 30%, #fde68a, #f59e0b); animation: bubbleIn 0.12s ease; }
+  .smash-hole:active { transform: scale(0.92); }
 
   /* ---------- Progress report ---------- */
   #report-screen { display: flex; flex-direction: column; gap: 12px; }
@@ -520,7 +527,8 @@
     signInAnonymously, onAuthStateChanged, signOut, sendPasswordResetEmail
   } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
   import {
-    getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot
+    getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot,
+    collection, query, orderBy, limit, getDocs
   } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -573,6 +581,17 @@
     ];
   }
 
+  // A fun, anonymous nickname suggestion for the worldwide leaderboard —
+  // never a real name, so a kid's identity is never exposed publicly.
+  const NICKNAME_ADJECTIVES = ['Swift', 'Mighty', 'Cosmic', 'Turbo', 'Brave', 'Clever', 'Sunny', 'Rapid', 'Epic', 'Wild', 'Golden', 'Sneaky'];
+  const NICKNAME_ANIMALS = ['Dragon', 'Falcon', 'Tiger', 'Panda', 'Rocket', 'Ninja', 'Shark', 'Wolf', 'Comet', 'Phoenix', 'Otter', 'Fox'];
+  function generateNickname() {
+    const a = NICKNAME_ADJECTIVES[Math.floor(Math.random() * NICKNAME_ADJECTIVES.length)];
+    const b = NICKNAME_ANIMALS[Math.floor(Math.random() * NICKNAME_ANIMALS.length)];
+    const n = Math.floor(Math.random() * 900) + 100;
+    return `${a} ${b} ${n}`;
+  }
+
   function defaultChild(name, theme) {
     return {
       id: makeId(),
@@ -581,7 +600,12 @@
       theme: theme || 'aussie',
       tasks: defaultTasks(),
       feats: defaultFeats(),
-      linkCode: null
+      linkCode: null,
+      // Worldwide leaderboard is OFF by default — a parent has to opt each
+      // kid in deliberately. Only the anonymous nickname is ever shown
+      // publicly, never the child's real name.
+      globalOptIn: false,
+      publicNickname: generateNickname()
     };
   }
 
@@ -894,9 +918,29 @@
   function getPoints() {
     return (childLogsData && childLogsData.totalPoints) || 0;
   }
-  function levelFor(points) { return Math.floor(points / 100) + 1; }
+  // ---------------------------------------------------------------------
+  // Level curve: a kid earns points fast at first (so light/occasional
+  // use still feels rewarded almost right away) and then each level
+  // takes progressively more points, so a heavy daily user has a long
+  // runway of milestones ahead of them. Tuned so ~10 tasks/day for 5
+  // years (~91,250 points) lands around Level 1000, while a couple of
+  // tasks a day still climbs steadily for years. levelFor/pointsForLevel
+  // are exact inverses of each other (floor(C*p^E)+1 <-> ((L-1)/C)^(1/E)).
+  // ---------------------------------------------------------------------
+  const LEVEL_CURVE_COEF = 0.3374;
+  const LEVEL_CURVE_EXP = 0.7;
+  function levelFor(points) {
+    const p = Math.max(0, points || 0);
+    return Math.floor(LEVEL_CURVE_COEF * Math.pow(p, LEVEL_CURVE_EXP)) + 1;
+  }
+  function pointsForLevel(level) {
+    if (level <= 1) return 0;
+    return Math.pow((level - 1) / LEVEL_CURVE_COEF, 1 / LEVEL_CURVE_EXP);
+  }
 
   const LEVEL_UP_BONUS_MINUTES = 5;
+  const TIER_LABEL = { common: '', rare: '✨ Rare ', epic: '🌟 EPIC ', legendary: '👑 LEGENDARY ', mythic: '🌈 MYTHIC ' };
+  const TIER_COLOR = { common: '#94a3b8', rare: '#38bdf8', epic: '#a78bfa', legendary: '#facc15', mythic: '#fb7185' };
 
   function addPoints(n) {
     if (!isPremium()) return;
@@ -911,14 +955,18 @@
       if (!childLogsData.logs) childLogsData.logs = {};
       if (!childLogsData.logs[today]) childLogsData.logs[today] = { tasks: {}, feats: {} };
       childLogsData.logs[today].bonusGameMinutes = (childLogsData.logs[today].bonusGameMinutes || 0) + LEVEL_UP_BONUS_MINUTES;
-      const unlockedIcons = REWARD_EMOJI.filter(r => r.level > beforeLevel && r.level <= afterLevel).map(r => r.emoji);
-      const iconText = unlockedIcons.length ? ` New icon unlocked: ${unlockedIcons.join(' ')}!` : '';
+      const unlocked = REWARD_EMOJI.filter(r => r.level > beforeLevel && r.level <= afterLevel);
+      const iconText = unlocked.length
+        ? ` New icon unlocked: ${unlocked.map(r => `${TIER_LABEL[r.tier] || ''}${r.emoji}`).join(' ')}!`
+        : '';
       const child = activeChild();
       const customReward = child && Array.isArray(child.levelRewards) ? child.levelRewards.find(r => r.level === afterLevel) : null;
       const rewardText = customReward ? ` 🎁 You earned: ${customReward.reward}!` : '';
+      const milestoneText = afterLevel === 1000 ? ' 🏆 ULTIMATE CHAMPION — LEVEL 1000!!! 🏆' : '';
+      const secretGameText = checkSecretGameMilestone(afterLevel);
       setTimeout(() => {
         burstFullScreen(140);
-        showHype(`🎉 LEVEL ${afterLevel} UNLOCKED! +${LEVEL_UP_BONUS_MINUTES} bonus game minutes today!${iconText}${rewardText}`, true);
+        showHype(`🎉 LEVEL ${afterLevel} UNLOCKED! +${LEVEL_UP_BONUS_MINUTES} bonus game minutes today!${iconText}${rewardText}${milestoneText}${secretGameText}`, true);
         playFanfare();
       }, 900);
     }
@@ -931,6 +979,38 @@
     if (!isPremium()) { chip.classList.add('hidden'); return; }
     chip.classList.remove('hidden');
     chip.textContent = `⭐ Level ${levelFor(getPoints())}`;
+  }
+
+  // Small popover showing progress toward the next level and the next
+  // icon reward waiting to be unlocked — helps a kid (or parent) see
+  // there's always something coming up next, however far off level 1000 is.
+  function openLevelProgressModal() {
+    const points = getPoints();
+    const level = levelFor(points);
+    const startCur = pointsForLevel(level);
+    const startNext = pointsForLevel(level + 1);
+    const span = Math.max(1, startNext - startCur);
+    const pct = Math.max(0, Math.min(100, Math.round(((points - startCur) / span) * 100)));
+    const pointsToGo = Math.max(0, Math.ceil(startNext - points));
+    const next = REWARD_EMOJI.find(r => r.level > level);
+    const nextText = next
+      ? `<p>Next icon unlock: <strong>${TIER_LABEL[next.tier] || ''}${next.emoji}</strong> at Level ${next.level}</p>`
+      : `<p>Every icon is unlocked — legend status! 🏆</p>`;
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet">
+          <h2>⭐ Level ${level}</h2>
+          <p>${points.toLocaleString()} points earned so far</p>
+          <div class="level-progress-bg"><div class="level-progress-fill" style="width:${pct}%"></div></div>
+          <p style="margin-top:6px;">${pointsToGo.toLocaleString()} points to Level ${level + 1}</p>
+          ${nextText}
+          <button class="link-btn" id="close-level-progress-btn">Close</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-level-progress-btn').addEventListener('click', closeModal);
   }
 
   function renderChildSwitcher() {
@@ -1076,7 +1156,17 @@
           }
           addPoints(5);
         }
-        if (allDoneEver) maybeShowDailyCheckin();
+        if (allDoneEver) {
+          maybeShowDailyCheckin();
+          const bonusUntil = checkStreakSecretGameBonus();
+          if (bonusUntil) {
+            setTimeout(() => {
+              burstFullScreen(160);
+              showHype(`🕹️ 7-day streak! Star Smash is unlocked as a surprise bonus for the next ${SECRET_GAME_BONUS_HOURS} hours!`, true);
+              playFanfare();
+            }, 1400);
+          }
+        }
       }
     }
     renderTasks();
@@ -1460,6 +1550,11 @@
   document.getElementById('report-back').addEventListener('click', closeReport);
   document.getElementById('report-print-btn').addEventListener('click', () => window.print());
 
+  document.getElementById('level-chip').addEventListener('click', () => {
+    if (!isPremium()) return;
+    openLevelProgressModal();
+  });
+
   document.getElementById('builder-save-btn').addEventListener('click', async () => {
     const child = activeChild();
     if (builderMode === 'tasks') child.tasks = builderDraft;
@@ -1473,11 +1568,27 @@
   // ---------------------------------------------------------------------
   const STARTER_EMOJI = ['🧑', '👦', '👧', '🐨', '🌟', '🐯'];
   // Reward icons unlock as a kid levels up — see addPoints(). "level" is the
-  // level at which that icon becomes selectable in the Edit Kid modal.
+  // level at which that icon becomes selectable in the Edit Kid modal. The
+  // list is spaced out (dense early, wider gaps later) and split into
+  // rarity tiers so unlocks keep coming for a very long time and feel more
+  // special the further a kid climbs, all the way up to Level 1000.
   const REWARD_EMOJI = [
-    { emoji: '🦸', level: 2 }, { emoji: '🦸‍♀️', level: 2 }, { emoji: '🐉', level: 3 },
-    { emoji: '🚀', level: 4 }, { emoji: '⚡', level: 5 }, { emoji: '🦖', level: 6 },
-    { emoji: '👑', level: 8 }, { emoji: '💎', level: 10 }
+    { emoji: '🦸', level: 2, tier: 'common' }, { emoji: '🦸‍♀️', level: 2, tier: 'common' },
+    { emoji: '🐉', level: 3, tier: 'common' }, { emoji: '🚀', level: 4, tier: 'common' },
+    { emoji: '⚡', level: 5, tier: 'common' }, { emoji: '🦖', level: 6, tier: 'common' },
+    { emoji: '🎨', level: 7, tier: 'common' }, { emoji: '🥷', level: 9, tier: 'common' },
+    { emoji: '🧙', level: 11, tier: 'rare' }, { emoji: '🧚', level: 14, tier: 'rare' },
+    { emoji: '🐺', level: 17, tier: 'rare' }, { emoji: '🦅', level: 21, tier: 'rare' },
+    { emoji: '🦁', level: 26, tier: 'rare' }, { emoji: '🐋', level: 32, tier: 'rare' },
+    { emoji: '🦈', level: 40, tier: 'epic' }, { emoji: '🛸', level: 50, tier: 'epic' },
+    { emoji: '🌋', level: 62, tier: 'epic' }, { emoji: '🎇', level: 77, tier: 'epic' },
+    { emoji: '👽', level: 96, tier: 'epic' }, { emoji: '🛡️', level: 120, tier: 'epic' },
+    { emoji: '⚔️', level: 150, tier: 'legendary' }, { emoji: '🏆', level: 187, tier: 'legendary' },
+    { emoji: '👑', level: 234, tier: 'legendary' }, { emoji: '💎', level: 292, tier: 'legendary' },
+    { emoji: '🔱', level: 365, tier: 'legendary' },
+    { emoji: '🌟', level: 456, tier: 'mythic' }, { emoji: '☄️', level: 570, tier: 'mythic' },
+    { emoji: '🌌', level: 712, tier: 'mythic' }, { emoji: '🔥', level: 890, tier: 'mythic' },
+    { emoji: '🏅', level: 1000, tier: 'mythic' }
   ];
 
   function openAddChildModal() {
@@ -1565,6 +1676,17 @@
             <label class="field-label" style="margin-top:4px;">Hype style</label>
             <p style="margin:-6px 0 4px;">This flavors the celebration messages when they finish missions.</p>
             <div class="theme-grid" id="edit-theme-grid"></div>
+            <label class="field-label" style="margin-top:4px;">🌍 Worldwide Leaderboard</label>
+            <p style="margin:-6px 0 4px;">Opt in to let ${escapeHtml(child.name)} compete on the public worldwide leaderboard. Only the nickname below is ever shown — never their real name.</p>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700;">
+              <input type="checkbox" id="edit-global-optin" ${child.globalOptIn ? 'checked' : ''} style="width:18px; height:18px;">
+              Join the worldwide leaderboard
+            </label>
+            <div id="edit-nickname-wrap" style="${child.globalOptIn ? '' : 'display:none;'}">
+              <label class="field-label" style="margin-top:8px;">Public nickname</label>
+              <input class="field-input" id="edit-kid-nickname" value="${escapeAttr(child.publicNickname || generateNickname())}" maxlength="24">
+              <button class="link-btn" id="shuffle-nickname-btn" type="button">🎲 Shuffle a new nickname</button>
+            </div>
             <button class="primary-btn" id="save-edit-kid-btn">Save Changes</button>
             <button class="link-btn" id="cancel-edit-kid-btn">Cancel</button>
           </div>
@@ -1577,8 +1699,9 @@
         const locked = kidLevel < entry.level;
         const opt = document.createElement('div');
         opt.className = 'emoji-opt' + (entry.emoji === selectedEmoji ? ' selected' : '') + (locked ? ' locked' : '');
+        const tierColor = TIER_COLOR[entry.tier] || '#94a3b8';
         opt.innerHTML = locked
-          ? `<span style="opacity:0.35;">${entry.emoji}</span><span class="lock-badge">🔒 Lv${entry.level}</span>`
+          ? `<span style="opacity:0.35;">${entry.emoji}</span><span class="lock-badge" style="color:${tierColor};">🔒 Lv${entry.level}</span>`
           : entry.emoji;
         if (!locked) {
           opt.addEventListener('click', () => {
@@ -1607,13 +1730,25 @@
 
       document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
       document.getElementById('cancel-edit-kid-btn').addEventListener('click', closeModal);
+      document.getElementById('edit-global-optin').addEventListener('change', (e) => {
+        document.getElementById('edit-nickname-wrap').style.display = e.target.checked ? '' : 'none';
+      });
+      document.getElementById('shuffle-nickname-btn').addEventListener('click', () => {
+        document.getElementById('edit-kid-nickname').value = generateNickname();
+      });
       document.getElementById('save-edit-kid-btn').addEventListener('click', async () => {
         const name = document.getElementById('edit-kid-name').value.trim();
         if (name) child.name = name;
         child.emoji = selectedEmoji;
         child.theme = selectedTheme;
         if (selectedTheme === 'custom') child.customHype = customDraft;
+        const wasOptedIn = child.globalOptIn;
+        child.globalOptIn = document.getElementById('edit-global-optin').checked;
+        const nicknameInput = document.getElementById('edit-kid-nickname').value.trim();
+        child.publicNickname = nicknameInput || child.publicNickname || generateNickname();
         await saveFamily();
+        if (child.globalOptIn) updateLeaderboard(null, 0); // push nickname/level even with no new game score
+        else if (wasOptedIn && !child.globalOptIn) removeFromGlobalLeaderboard(child.id);
         render();
         closeModal();
       });
@@ -1772,6 +1907,49 @@
       }
     }
     return { ok: true, remainingMinutes: allowed === Infinity ? null : Math.max(0, allowed - used) };
+  }
+
+  // ---------------------------------------------------------------------
+  // 🕹️ Star Smash — the "secret" third game. It's not shown in the game
+  // picker at all until a kid either (a) reaches a level milestone, which
+  // unlocks it for good, or (b) completes every mission for 7 days in a
+  // row, which pops it open as a surprise 24-hour bonus window. Either
+  // way it's framed to the kid as a reward they found, not a menu item
+  // they were always able to see.
+  // ---------------------------------------------------------------------
+  const SECRET_GAME_MILESTONE_LEVEL = 15;
+  const SECRET_GAME_STREAK_DAYS = 7;
+  const SECRET_GAME_BONUS_HOURS = 24;
+
+  function currentDayStreak() {
+    return computeReportData(30).streak;
+  }
+
+  function secretGameStatus() {
+    const level = levelFor(getPoints());
+    if (level >= SECRET_GAME_MILESTONE_LEVEL) return { unlocked: true, mode: 'milestone' };
+    const until = childLogsData && childLogsData.secretGameBonusUntil;
+    if (until && Date.now() < until) return { unlocked: true, mode: 'bonus', until };
+    return { unlocked: false };
+  }
+
+  // Called right after a kid finishes every mission for the day (see
+  // toggleTask's allDoneEver branch). If that completes a 7-day streak,
+  // pop open the secret game for a limited time as a surprise bonus.
+  function checkStreakSecretGameBonus() {
+    if (levelFor(getPoints()) >= SECRET_GAME_MILESTONE_LEVEL) return null; // already permanently unlocked
+    if (currentDayStreak() < SECRET_GAME_STREAK_DAYS) return null;
+    const until = Date.now() + SECRET_GAME_BONUS_HOURS * 60 * 60 * 1000;
+    const alreadyActive = childLogsData.secretGameBonusUntil && Date.now() < childLogsData.secretGameBonusUntil;
+    childLogsData.secretGameBonusUntil = until;
+    return alreadyActive ? null : until; // only announce it the moment it first opens
+  }
+
+  // Called from addPoints() right as a level-up is being resolved — folds
+  // the "you just unlocked the secret game!" announcement into the same
+  // level-up toast when the milestone level is the one just reached.
+  function checkSecretGameMilestone(afterLevel) {
+    return afterLevel === SECRET_GAME_MILESTONE_LEVEL ? ' 🕹️ SECRET GAME UNLOCKED: Star Smash!' : '';
   }
 
   function openGameSettingsModal() {
@@ -1960,6 +2138,7 @@
   function stopAllGames() {
     if (ppState) { clearTimeout(ppState.spawnTimeout); clearInterval(ppState.timerInterval); ppState.running = false; }
     if (pmState) { pmState.running = false; pmState.accepting = false; }
+    if (ssState) { clearTimeout(ssState.moleTimeout); clearInterval(ssState.timerInterval); ssState.running = false; }
   }
 
   async function finishGameRound(score, startedAt, label, gameKey) {
@@ -1980,23 +2159,74 @@
   // Best-effort: a kid can only write their OWN leaderboard entry, and this
   // is purely a fun-motivator, so any failure here (e.g. rules not yet
   // updated) should never interrupt the actual game flow.
+  //
+  // Two leaderboards share this one function: the family one (siblings
+  // only, always on, uses real names — private to the family) and the
+  // worldwide one (opt-in per kid, uses only the public nickname, never
+  // the real name). Pass gameKey=null to just refresh a kid's global
+  // nickname/level (e.g. right after toggling worldwide on) with no game
+  // score involved.
+  function globalLeaderboardDocId(familyId, childId) { return `${familyId}_${childId}`; }
+
   async function updateLeaderboard(gameKey, score) {
     if (!familyRef) return;
+    const child = activeChild();
+    let familyData_ = null;
     try {
-      const child = activeChild();
       const ref = doc(db, 'families', familyRef.id, 'leaderboard', child.id);
       const snap = await getDoc(ref);
       const data = snap.exists() ? snap.data() : {};
-      const field = gameKey === 'pattern' ? 'bestPattern' : 'bestPowerPop';
-      if (!data[field] || score > data[field]) {
-        data[field] = score;
-        data.updatedAt = todayKey();
-        await setDoc(ref, data);
+      if (gameKey) {
+        const field = GAME_FIELDS[gameKey];
+        if (field && (!data[field] || score > data[field])) {
+          data[field] = score;
+          data.updatedAt = todayKey();
+          await setDoc(ref, data);
+        }
       }
-    } catch (e) { /* leaderboard is best-effort */ }
+      familyData_ = data;
+    } catch (e) { /* family leaderboard is best-effort */ }
+
+    if (!child.globalOptIn) return;
+    try {
+      const gref = doc(db, 'globalLeaderboard', globalLeaderboardDocId(familyRef.id, child.id));
+      const gsnap = await getDoc(gref);
+      const gdata = gsnap.exists() ? gsnap.data() : {};
+      const field = GAME_FIELDS[gameKey];
+      if (field && (!gdata[field] || score > gdata[field])) gdata[field] = score;
+      Object.values(GAME_FIELDS).forEach((f) => {
+        gdata[f] = Math.max(gdata[f] || 0, (familyData_ && familyData_[f]) || 0);
+      });
+      gdata.level = levelFor(getPoints());
+      gdata.nickname = child.publicNickname || generateNickname();
+      gdata.familyId = familyRef.id;
+      gdata.childId = child.id;
+      gdata.updatedAt = todayKey();
+      await setDoc(gref, gdata);
+    } catch (e) { /* worldwide leaderboard is best-effort */ }
   }
 
-  async function openLeaderboardModal() {
+  async function removeFromGlobalLeaderboard(childId) {
+    if (!familyRef) return;
+    try {
+      await deleteDoc(doc(db, 'globalLeaderboard', globalLeaderboardDocId(familyRef.id, childId)));
+    } catch (e) { /* best-effort */ }
+  }
+
+  function renderLeaderboardRows(ranked, field, unitLabel, nameKey) {
+    if (!ranked.length || ranked.every(e => e[field] === 0)) return '<p style="font-size:12.5px; color:#94a3b8;">No scores yet — go play!</p>';
+    const medals = ['🥇', '🥈', '🥉'];
+    return `<div class="builder-list">${ranked.map((e, i) => `
+      <div class="builder-row" style="display:flex; align-items:center; gap:10px;">
+        <span style="width:26px; text-align:center; font-size:16px;">${medals[i] || (i + 1) + '.'}</span>
+        ${e.emoji ? `<span style="font-size:20px;">${e.emoji}</span>` : ''}
+        <span style="flex:1; text-align:left; font-weight:700;">${escapeHtml(e[nameKey])}</span>
+        <span style="font-weight:900; color:#facc15;">${e[field]} ${unitLabel}</span>
+      </div>`).join('')}</div>`;
+  }
+
+  async function openLeaderboardModal(view) {
+    view = view || 'family';
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-overlay centered" id="modal-overlay">
@@ -2008,49 +2238,82 @@
     `;
     document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
 
-    const childIds = Object.keys(familyData.children || {});
-    let entries = [];
-    try {
-      entries = await Promise.all(childIds.map(async (cid) => {
-        const c = familyData.children[cid];
-        const ref = doc(db, 'families', familyRef.id, 'leaderboard', cid);
-        const snap = await getDoc(ref);
-        const data = snap.exists() ? snap.data() : {};
-        return { id: cid, name: c.name, emoji: c.emoji, bestPowerPop: data.bestPowerPop || 0, bestPattern: data.bestPattern || 0 };
-      }));
-    } catch (e) {
-      entries = [];
+    const tabsHtml = `
+      <div style="display:flex; gap:8px; width:100%;">
+        <button class="ghost-btn" id="lb-tab-family" style="flex:1; ${view === 'family' ? 'background:#312e81;' : ''}">👨‍👩‍👧 My Family</button>
+        <button class="ghost-btn" id="lb-tab-global" style="flex:1; ${view === 'global' ? 'background:#312e81;' : ''}">🌍 Worldwide</button>
+      </div>
+    `;
+
+    let bodyHtml = '';
+    if (view === 'family') {
+      const childIds = Object.keys(familyData.children || {});
+      let entries = [];
+      try {
+        entries = await Promise.all(childIds.map(async (cid) => {
+          const c = familyData.children[cid];
+          const ref = doc(db, 'families', familyRef.id, 'leaderboard', cid);
+          const snap = await getDoc(ref);
+          const data = snap.exists() ? snap.data() : {};
+          return { id: cid, name: c.name, emoji: c.emoji, bestPowerPop: data.bestPowerPop || 0, bestPattern: data.bestPattern || 0, bestStarSmash: data.bestStarSmash || 0 };
+        }));
+      } catch (e) { entries = []; }
+      const powerPopRanked = [...entries].sort((a, b) => b.bestPowerPop - a.bestPowerPop);
+      const patternRanked = [...entries].sort((a, b) => b.bestPattern - a.bestPattern);
+      const smashRanked = [...entries].sort((a, b) => b.bestStarSmash - a.bestStarSmash);
+      bodyHtml = `
+        <label class="field-label">⚡ Power Pop — most pops in 20s</label>
+        ${renderLeaderboardRows(powerPopRanked, 'bestPowerPop', 'pops', 'name')}
+        <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
+        ${renderLeaderboardRows(patternRanked, 'bestPattern', 'rounds', 'name')}
+        ${smashRanked.some(e => e.bestStarSmash > 0) ? `<label class="field-label" style="margin-top:6px;">🕹️ Star Smash — most smashes in 20s</label>${renderLeaderboardRows(smashRanked, 'bestStarSmash', 'smashes', 'name')}` : ''}
+      `;
+    } else {
+      let levelEntries = [], popEntries = [], patternEntries = [], smashEntries = [];
+      try {
+        const col = collection(db, 'globalLeaderboard');
+        const [levelSnap, popSnap, patSnap, smashSnap] = await Promise.all([
+          getDocs(query(col, orderBy('level', 'desc'), limit(25))),
+          getDocs(query(col, orderBy('bestPowerPop', 'desc'), limit(25))),
+          getDocs(query(col, orderBy('bestPattern', 'desc'), limit(25))),
+          getDocs(query(col, orderBy('bestStarSmash', 'desc'), limit(25)))
+        ]);
+        levelSnap.forEach(d => levelEntries.push({ nickname: d.data().nickname || 'Anonymous', level: d.data().level || 1 }));
+        popSnap.forEach(d => popEntries.push({ nickname: d.data().nickname || 'Anonymous', bestPowerPop: d.data().bestPowerPop || 0 }));
+        patSnap.forEach(d => patternEntries.push({ nickname: d.data().nickname || 'Anonymous', bestPattern: d.data().bestPattern || 0 }));
+        smashSnap.forEach(d => smashEntries.push({ nickname: d.data().nickname || 'Anonymous', bestStarSmash: d.data().bestStarSmash || 0 }));
+      } catch (e) { /* likely rules not yet updated for this project — show empty state */ }
+      const child = activeChild();
+      const optInNote = child && !child.globalOptIn
+        ? `<p style="font-size:12px; color:#94a3b8;">Not competing yet? Turn on "Join the worldwide leaderboard" in Edit Kid Profile.</p>` : '';
+      bodyHtml = `
+        <p style="font-size:12px; color:#94a3b8; margin-top:-4px;">Kids worldwide, shown only by nickname — never real names.</p>
+        <label class="field-label">⭐ Top Levels</label>
+        ${renderLeaderboardRows(levelEntries, 'level', '', 'nickname')}
+        <label class="field-label" style="margin-top:6px;">⚡ Power Pop — most pops in 20s</label>
+        ${renderLeaderboardRows(popEntries, 'bestPowerPop', 'pops', 'nickname')}
+        <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
+        ${renderLeaderboardRows(patternEntries, 'bestPattern', 'rounds', 'nickname')}
+        <label class="field-label" style="margin-top:6px;">🕹️ Star Smash — most smashes in 20s</label>
+        ${renderLeaderboardRows(smashEntries, 'bestStarSmash', 'smashes', 'nickname')}
+        ${optInNote}
+      `;
     }
-
-    const renderRows = (ranked, field, unitLabel) => {
-      if (!ranked.length || ranked.every(e => e[field] === 0)) return '<p style="font-size:12.5px; color:#94a3b8;">No scores yet — go play!</p>';
-      const medals = ['🥇', '🥈', '🥉'];
-      return `<div class="builder-list">${ranked.map((e, i) => `
-        <div class="builder-row" style="display:flex; align-items:center; gap:10px;">
-          <span style="width:26px; text-align:center; font-size:16px;">${medals[i] || (i + 1) + '.'}</span>
-          <span style="font-size:20px;">${e.emoji}</span>
-          <span style="flex:1; text-align:left; font-weight:700;">${escapeHtml(e.name)}</span>
-          <span style="font-weight:900; color:#facc15;">${e[field]} ${unitLabel}</span>
-        </div>`).join('')}</div>`;
-    };
-
-    const powerPopRanked = [...entries].sort((a, b) => b.bestPowerPop - a.bestPowerPop);
-    const patternRanked = [...entries].sort((a, b) => b.bestPattern - a.bestPattern);
 
     root.innerHTML = `
       <div class="modal-overlay centered" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
           <h2>🏆 Leaderboard</h2>
-          <label class="field-label">⚡ Power Pop — most pops in 20s</label>
-          ${renderRows(powerPopRanked, 'bestPowerPop', 'pops')}
-          <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
-          ${renderRows(patternRanked, 'bestPattern', 'rounds')}
+          ${tabsHtml}
+          ${bodyHtml}
           <button class="link-btn" id="close-leaderboard-btn">Close</button>
         </div>
       </div>
     `;
     document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
     document.getElementById('close-leaderboard-btn').addEventListener('click', closeModal);
+    document.getElementById('lb-tab-family').addEventListener('click', () => openLeaderboardModal('family'));
+    document.getElementById('lb-tab-global').addEventListener('click', () => openLeaderboardModal('global'));
   }
 
   document.getElementById('leaderboard-btn').addEventListener('click', () => {
@@ -2076,6 +2339,10 @@
       document.getElementById('close-elig-btn').addEventListener('click', closeModal);
       return;
     }
+    const secret = secretGameStatus();
+    const secretButtonHtml = secret.unlocked
+      ? `<button class="ghost-btn" id="pick-starsmash-btn" style="font-size:15px; padding:14px; border-color:#facc15;">🕹️ Star Smash — secret game! ${secret.mode === 'bonus' ? '(bonus, limited time!)' : ''}</button>`
+      : '';
     root.innerHTML = `
       <div class="modal-overlay centered" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
@@ -2084,6 +2351,7 @@
           <div style="display:flex; flex-direction:column; gap:10px; width:100%;">
             <button class="ghost-btn" id="pick-powerpop-btn" style="font-size:15px; padding:14px;">⚡ Power Pop — tap the bubbles</button>
             <button class="ghost-btn" id="pick-pattern-btn" style="font-size:15px; padding:14px;">🧠 Pattern Match — repeat the sequence</button>
+            ${secretButtonHtml}
           </div>
           <button class="link-btn" id="close-picker-btn">Close</button>
         </div>
@@ -2093,12 +2361,18 @@
     document.getElementById('close-picker-btn').addEventListener('click', closeModal);
     document.getElementById('pick-powerpop-btn').addEventListener('click', openPowerPopModal);
     document.getElementById('pick-pattern-btn').addEventListener('click', openPatternModal);
+    const starBtn = document.getElementById('pick-starsmash-btn');
+    if (starBtn) starBtn.addEventListener('click', openStarSmashModal);
   }
 
   document.getElementById('game-btn').addEventListener('click', () => {
     if (!isPremium()) { openUpgradeModal('Mini-games are a Premium feature.'); return; }
     openGamePicker();
   });
+
+  // Maps a mini-game's key to the leaderboard field it writes/reads,
+  // shared by both the family and worldwide leaderboards.
+  const GAME_FIELDS = { powerPop: 'bestPowerPop', pattern: 'bestPattern', starSmash: 'bestStarSmash' };
 
   // --- Power Pop: 20-second reflex bubble-tap, gets faster as it goes ---
   let ppState = null;
@@ -2317,6 +2591,117 @@
     const statusEl = document.getElementById('pattern-status');
     if (statusEl) statusEl.textContent = `Game over — ${finalScore} round${finalScore === 1 ? '' : 's'}!`;
     await finishGameRound(finalScore, startedAt, '🧠 Pattern Match', 'pattern');
+  }
+
+  // --- Star Smash: the secret whack-a-mole game — a star pops up in one
+  // of 9 holes for a shrinking window; tap it before it vanishes. Every
+  // 5-in-a-row streak earns a small combo bonus. ---
+  let ssState = null;
+  const STAR_SMASH_SECONDS = 20;
+  const STAR_SMASH_HOLES = 9;
+
+  function openStarSmashModal() {
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay centered" id="modal-overlay">
+        <div class="modal-sheet" style="align-items:center; text-align:center;">
+          <h2>🕹️ Star Smash</h2>
+          <p>Smash the star before it disappears! It gets faster the longer you go. 20 seconds — go!</p>
+          <div class="game-hud" style="width:100%;">
+            <span>⏱️ <span id="game-timer">${STAR_SMASH_SECONDS}</span>s</span>
+            <span class="game-score">⭐ <span id="game-score">0</span></span>
+          </div>
+          <div class="game-area" id="game-area" style="padding:0;"><div class="smash-grid" id="smash-grid"></div></div>
+          <button class="primary-btn" id="game-start-btn" style="width:100%;">Start</button>
+          <button class="link-btn" id="close-game-btn">Close</button>
+        </div>
+      </div>
+    `;
+    const grid = document.getElementById('smash-grid');
+    for (let i = 0; i < STAR_SMASH_HOLES; i++) {
+      const hole = document.createElement('button');
+      hole.className = 'smash-hole';
+      hole.dataset.idx = String(i);
+      grid.appendChild(hole);
+    }
+    const finishAndClose = async () => {
+      if (ssState && ssState.running) await endStarSmash();
+      closeModal();
+    };
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') finishAndClose(); });
+    document.getElementById('close-game-btn').addEventListener('click', finishAndClose);
+    document.getElementById('game-start-btn').addEventListener('click', startStarSmash);
+  }
+
+  function startStarSmash() {
+    stopAllGames();
+    const startBtn = document.getElementById('game-start-btn');
+    startBtn.disabled = true;
+    startBtn.textContent = 'Playing…';
+    document.getElementById('game-score').textContent = '0';
+    document.getElementById('game-timer').textContent = String(STAR_SMASH_SECONDS);
+    document.querySelectorAll('.smash-hole').forEach(h => { h.classList.remove('up'); h.textContent = ''; });
+
+    ssState = { score: 0, streak: 0, timeLeft: STAR_SMASH_SECONDS, running: true, startedAt: Date.now(), activeIdx: -1 };
+    scheduleNextMole();
+    ssState.timerInterval = setInterval(() => {
+      if (!ssState) return;
+      ssState.timeLeft--;
+      const timerEl = document.getElementById('game-timer');
+      if (timerEl) timerEl.textContent = String(ssState.timeLeft);
+      if (ssState.timeLeft <= 0) endStarSmash();
+    }, 1000);
+  }
+
+  function scheduleNextMole() {
+    if (!ssState || !ssState.running) return;
+    const elapsedFrac = 1 - (ssState.timeLeft / STAR_SMASH_SECONDS);
+    const gapDelay = Math.max(220, 550 - elapsedFrac * 300); // gap before next mole shrinks over the round
+    ssState.moleTimeout = setTimeout(() => popMole(), gapDelay);
+  }
+
+  function popMole() {
+    if (!ssState || !ssState.running) return;
+    const elapsedFrac = 1 - (ssState.timeLeft / STAR_SMASH_SECONDS);
+    const upTime = Math.max(450, 950 - elapsedFrac * 450); // ramps 950ms -> 450ms
+    const holes = document.querySelectorAll('.smash-hole');
+    if (!holes.length) return;
+    const idx = Math.floor(Math.random() * holes.length);
+    ssState.activeIdx = idx;
+    const hole = holes[idx];
+    hole.classList.add('up');
+    hole.textContent = '🌟';
+    let smashed = false;
+    const clear = () => {
+      hole.classList.remove('up');
+      hole.textContent = '';
+      if (ssState) ssState.activeIdx = -1;
+    };
+    hole.onclick = () => {
+      if (smashed || !ssState || !ssState.running || ssState.activeIdx !== idx) return;
+      smashed = true;
+      ssState.streak++;
+      const combo = ssState.streak > 0 && ssState.streak % 5 === 0 ? 2 : 1;
+      ssState.score += combo;
+      const scoreEl = document.getElementById('game-score');
+      if (scoreEl) scoreEl.textContent = String(ssState.score);
+      if (navigator.vibrate) navigator.vibrate(combo > 1 ? [20, 40, 20] : 20);
+      clear();
+      scheduleNextMole();
+    };
+    ssState.moleTimeout = setTimeout(() => {
+      if (!smashed) { ssState.streak = 0; clear(); scheduleNextMole(); }
+    }, upTime);
+  }
+
+  async function endStarSmash() {
+    const finalScore = ssState ? ssState.score : 0;
+    const startedAt = ssState ? ssState.startedAt : Date.now();
+    stopAllGames();
+    document.querySelectorAll('.smash-hole').forEach(h => { h.classList.remove('up'); h.textContent = ''; h.onclick = null; });
+    const startBtn = document.getElementById('game-start-btn');
+    if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
+    await finishGameRound(finalScore, startedAt, '🕹️ Star Smash', 'starSmash');
   }
 
   // ---------------------------------------------------------------------

@@ -4,7 +4,13 @@
 
 ## ⚠️ One new step if you already set this up before
 
-The new **Leaderboard** feature needs one more block added to your security rules (see the updated rules in step 3 below — it's the new `match /leaderboard/{childId}` section near the bottom). Without it, the Leaderboard will just quietly show "no scores yet" for everyone instead of erroring, but it won't actually work until you republish the rules. Everything else (missions, feats, points, games) works exactly as before — this only affects the trophy leaderboard.
+The **Worldwide Leaderboard** (new — see the "🌍 Worldwide" tab in the trophy screen) needs one more block added to your security rules: a brand-new top-level `globalLeaderboard` collection (see step 3 below). Without it, the Worldwide tab will just quietly show empty rankings instead of erroring, but it won't actually work until you republish the rules. Everything else — missions, feats, points, games, and the family leaderboard — works exactly as before.
+
+A couple of things worth knowing about how this works, since it's public-facing:
+
+- **Off by default, per kid.** A parent has to explicitly turn on "Join the worldwide leaderboard" for each kid in their Edit Profile screen — nobody is opted in automatically.
+- **Never a real name.** Once opted in, a kid only ever appears publicly under an auto-generated nickname (like "Swift Dragon 482") that the parent can shuffle or edit — their actual name, emoji, family, and any other detail never leaves the family-scoped part of the database.
+- Turning the toggle back off deletes that kid's public entry.
 
 **To update:** go to **Firestore Database → Rules**, select all the existing text, delete it, and paste in the full rules block from step 3 below (it includes everything from before, plus the new leaderboard section), then click **Publish**.
 
@@ -87,6 +93,31 @@ service cloud.firestore {
         (exists(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)) &&
          get(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)).data.familyId == familyId &&
          get(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)).data.childId == childId)
+      );
+    }
+
+    // NEW: the worldwide leaderboard. This is a top-level collection (not
+    // nested under a family) because it's meant to be readable by every
+    // signed-in user, not just members of one family — that's the whole
+    // point of "worldwide". Every doc only ever contains a kid's public
+    // nickname, level, and best game scores — never their real name,
+    // emoji, or any other family detail. A doc can only be written by the
+    // family/kid device it belongs to, same ownership check as everywhere
+    // else in these rules, just checked against fields on the document
+    // instead of the path (since the doc ID here isn't a nested childId).
+    match /globalLeaderboard/{entryId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && (
+        request.auth.uid == request.resource.data.familyId ||
+        (exists(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)).data.familyId == request.resource.data.familyId &&
+         get(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)).data.childId == request.resource.data.childId)
+      );
+      allow delete: if request.auth != null && (
+        request.auth.uid == resource.data.familyId ||
+        (exists(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)).data.familyId == resource.data.familyId &&
+         get(/databases/$(database)/documents/linkedDevices/$(request.auth.uid)).data.childId == resource.data.childId)
       );
     }
 
