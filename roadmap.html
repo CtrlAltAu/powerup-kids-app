@@ -430,7 +430,7 @@
   <div class="stats">
     <div class="stat">
       <p class="stat-label">Progress</p>
-      <p class="stat-value">1 / 10 phases</p>
+      <p class="stat-value">3 / 10 phases</p>
     </div>
     <div class="stat">
       <p class="stat-label">Platforms</p>
@@ -442,7 +442,7 @@
     </div>
     <div class="stat">
       <p class="stat-label">Now building</p>
-      <p class="stat-value">Architecture</p>
+      <p class="stat-value">App wrapper</p>
     </div>
   </div>
 
@@ -506,48 +506,47 @@
       </div>
     </div>
 
-    <div class="phase active">
+    <div class="phase done">
       <div class="phase-num">2</div>
       <div class="phase-card">
         <div class="phase-top">
           <span class="phase-title">Multi-family architecture</span>
-          <span class="chip active">In progress</span>
+          <span class="chip done">Done</span>
         </div>
-        <p class="phase-desc">One parent account (email + Sign in with Apple) can hold multiple child profiles, each with a fully editable routine and bonus feats instead of the fixed 8-task Koda schedule.</p>
-        <div class="phase-ask">→ Free tier: one child, a basic plain checklist, no confetti/hype/custom feats, reminders only while the app is open. → Premium: full gamified experience, real push notifications, unlimited kids, custom feats/rewards, progress history.</div>
+        <p class="phase-desc">Built and tested: one parent account (email sign-up/login) holds multiple child profiles, each with their own routine and bonus feats, synced live through Firestore instead of the old single hard-coded Realtime DB array.</p>
       </div>
     </div>
 
-    <div class="phase">
+    <div class="phase active">
       <div class="phase-num">3</div>
       <div class="phase-card">
         <div class="phase-top">
           <span class="phase-title">Capacitor build wrapper</span>
-          <span class="chip pending">Not started</span>
+          <span class="chip active">Up next</span>
         </div>
-        <p class="phase-desc">Package the web app into native iOS and Android app shells, wired up with real haptics, notifications and sound through Capacitor plugins.</p>
+        <p class="phase-desc">Package the now-working web app into native iOS and Android app shells, wired up with real haptics, push notifications and sound through Capacitor plugins.</p>
       </div>
     </div>
 
-    <div class="phase">
+    <div class="phase done">
       <div class="phase-num">4</div>
       <div class="phase-card">
         <div class="phase-top">
           <span class="phase-title">Parent setup &amp; routine builder</span>
-          <span class="chip pending">Not started</span>
+          <span class="chip done">Done</span>
         </div>
-        <p class="phase-desc">The screen where a parent builds their own child's tasks, times and bonus feats. This is what makes the app sellable beyond one family.</p>
+        <p class="phase-desc">Built and tested: a parent can add a kid, pick their icon, and fully edit that kid's mission list and bonus feats — add, edit, remove, retime, all synced live.</p>
       </div>
     </div>
 
-    <div class="phase">
+    <div class="phase active">
       <div class="phase-num">5</div>
       <div class="phase-card">
         <div class="phase-top">
           <span class="phase-title">Free vs subscription paywall</span>
-          <span class="chip pending">Not started</span>
+          <span class="chip active">Gate built, billing pending</span>
         </div>
-        <p class="phase-desc">Gate the full feature set behind a subscription, wired into Apple and Google's in-app purchase systems.</p>
+        <p class="phase-desc">The free/premium feature gate is built and tested — free tier is deliberately basic (one kid, fixed routine, no celebrations), premium unlocks everything. Still need: real Apple StoreKit / Google Play Billing to replace today's dev-only testing toggle.</p>
       </div>
     </div>
 
@@ -643,13 +642,14 @@
   </div>
 
   <div class="callout">
-    <p class="eyebrow">Next up</p>
-    <h3>Building the customizable core</h3>
-    <p>The free/premium line is now the product's spine: free proves the app works, premium is where all the fun and the real reminders live. Next concrete steps:</p>
+    <p class="eyebrow">Your action items right now</p>
+    <h3>Two switches in Firebase, then wrap it as an app</h3>
+    <p>The rebuilt app (parent accounts, multi-kid profiles, editable routines, free/premium gate) is built and tested. It won't connect until you flip two things on in your Firebase console — full steps were sent with the app file. After that:</p>
     <ul>
-      <li>Design the actual data structure for parent accounts + multiple child profiles + editable routines</li>
-      <li>Rebuild the app's UI so a parent can add/edit/reorder their child's tasks and feats, instead of the fixed Koda schedule</li>
-      <li>Wire up the free/premium gate around gamification, push notifications, and multi-kid profiles</li>
+      <li>Enable Firestore Database + paste in the security rules (locks each family to their own data)</li>
+      <li>Enable Email/Password sign-in</li>
+      <li>Once that's done, sign up in the app and everything should sync live</li>
+      <li>Then: Phase 3, wrapping it in Capacitor for the App Store and Google Play</li>
     </ul>
   </div>
 

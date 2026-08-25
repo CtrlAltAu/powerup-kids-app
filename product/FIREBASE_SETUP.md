@@ -1,13 +1,13 @@
 # Firebase setup — do this before testing the new app
 
-The new app (`app.html`) needs two things turned on in your existing Firebase project that the old single-family version didn't use. This only takes a few minutes.
+`app.html` is now wired to the new **powerup-kids-app** project (separate from `koda-routine`, which stays untouched running your son's actual daily app). Same three steps as before, just in the new project this time.
 
 ## 1. Enable Firestore Database
 
-1. Go to https://console.firebase.google.com and open the **koda-routine** project.
+1. Go to https://console.firebase.google.com and open the **powerup-kids-app** project.
 2. In the left sidebar, under **Build**, click **Firestore Database**.
 3. Click **Create database**.
-4. Choose **Start in production mode** (we're pasting in our own rules below, so this is safe).
+4. Choose **Production mode** (we're pasting in our own rules below, so this is safe — this is the one you already confirmed).
 5. Pick a location — **australia-southeast1 (Sydney)** or **australia-southeast2 (Melbourne)** will be fastest for you.
 6. Click **Enable**.
 
