@@ -245,6 +245,15 @@
   }
   .hype-toast.show { transform: translate(-50%, 0); opacity: 1; }
   .hype-toast.big { background: linear-gradient(135deg, #facc15, #f97316, #ec4899); font-size: 18px; padding: 16px 24px; }
+  /* Calm Celebrations — a per-kid opt-in (see Edit Kid Profile) for a
+     quieter level-up: same message, but a slow fade instead of a bouncy
+     pop-in, and the Transition Cue's soft lavender instead of the hot
+     amber/pink gradient. Paired with a lighter confetti burst and
+     playGentleCue() instead of playFanfare() in addPoints(). */
+  .hype-toast.calm {
+    background: linear-gradient(135deg, #312e81, #1e3a5f); color: #e0e7ff;
+    transition: transform 0.6s cubic-bezier(.25,.8,.4,1), opacity 0.6s ease;
+  }
   .nudge-toast {
     position: fixed; left: 50%; top: 14px; transform: translate(-50%, -140%);
     background: #1e3a8a; color: #dbeafe; font-weight: 800; font-size: 13.5px;
@@ -1043,10 +1052,17 @@
       const milestoneText = afterLevel === 1000 ? ' 🏆 ULTIMATE CHAMPION — LEVEL 1000!!! 🏆' : '';
       const secretGameText = checkSecretGameMilestone(afterLevel);
       const closingText = source === 'game' ? ' Awesome playing — now let’s go knock out a mission! 💪' : '';
+      // Calm Celebrations (per-kid, off by default — see Edit Kid Profile):
+      // same message and reward, but a lighter confetti burst, a slow fade
+      // instead of a bouncy pop-in, and the Transition Cue's soft chime
+      // instead of the fanfare. For a kid who finds the full celebration
+      // overwhelming rather than motivating, without taking it away from
+      // kids who love it.
+      const calm = !!(child && child.calmCelebrations);
       setTimeout(() => {
-        burstFullScreen(140);
-        showHype(`🎉 LEVEL ${afterLevel} UNLOCKED!${iconText}${rewardText}${milestoneText}${secretGameText}${closingText}`, true);
-        playFanfare();
+        burstFullScreen(calm ? 28 : 140);
+        showHype(`🎉 LEVEL ${afterLevel} UNLOCKED!${iconText}${rewardText}${milestoneText}${secretGameText}${closingText}`, true, calm);
+        if (calm) playGentleCue(); else playFanfare();
         if (unlocked.length) {
           setTimeout(() => openIconUnlockModal(unlocked), 1400);
         }
@@ -2135,6 +2151,12 @@
               <label class="field-label" style="margin-top:8px;">How many minutes before?</label>
               <input class="field-input" id="edit-transition-minutes" type="number" min="1" max="15" value="${tc.minutesBefore}">
             </div>
+            <label class="field-label" style="margin-top:4px;">🧘 Calm Celebrations</label>
+            <p style="margin:-6px 0 4px;">A quieter level-up for ${escapeHtml(child.name)}: same message and rewards, but a lighter confetti burst, a slow fade instead of a bouncy pop-in, and a soft chime instead of the fanfare. Good for a kid who finds the full celebration overwhelming rather than exciting. Off by default.</p>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700;">
+              <input type="checkbox" id="edit-calm-celebrations" ${child.calmCelebrations ? 'checked' : ''} style="width:18px; height:18px;">
+              Turn on Calm Celebrations
+            </label>
             <label class="field-label" style="margin-top:4px;">🌍 Worldwide Leaderboard</label>
             <p style="margin:-6px 0 4px;">Opt in to let ${escapeHtml(child.name)} compete on the public worldwide leaderboard. Only the nickname below is ever shown — never their real name.</p>
             <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700;">
@@ -2227,6 +2249,7 @@
           minutesBefore: Math.max(1, Math.min(15, parseInt(document.getElementById('edit-transition-minutes').value, 10) || 3))
         };
         if (!child.transitionCue.enabled) { transitionCuedTaskIds.clear(); hideTransitionCue(); }
+        child.calmCelebrations = document.getElementById('edit-calm-celebrations').checked;
         const wasOptedIn = child.globalOptIn;
         child.globalOptIn = document.getElementById('edit-global-optin').checked;
         child.publicNickname = selectedNickname;
@@ -3549,10 +3572,11 @@
 
   const hypeToast = document.getElementById('hype-toast');
   let hypeTimer = null;
-  function showHype(text, big) {
+  function showHype(text, big, calm) {
     clearTimeout(hypeTimer);
     hypeToast.textContent = text;
     hypeToast.classList.toggle('big', !!big);
+    hypeToast.classList.toggle('calm', !!calm);
     hypeToast.classList.remove('show');
     void hypeToast.offsetWidth;
     hypeToast.classList.add('show');
