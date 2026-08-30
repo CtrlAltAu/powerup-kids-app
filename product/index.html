@@ -313,6 +313,21 @@
   .modal-overlay.centered .modal-sheet { border-radius: 20px; max-height: 90vh; }
   .modal-sheet h2 { font-size: 18px; margin: 0; }
   .modal-sheet p { font-size: 13.5px; color: #94a3b8; margin: 0; }
+
+  /* ---------- Parent Menu (grouped settings sheet) ----------
+     Replaces the old flat stack of 7 identical buttons plus a second,
+     disconnected settings modal. Groups reuse the app's existing accent
+     colors (amber = kid/rewards, indigo = reports, slate = account) so
+     the grouping reads as intentional rather than a new palette. */
+  .menu-group { border-radius: 14px; padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .menu-group-label { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.6px; padding: 0 2px; }
+  .menu-group.mg-profile { background: #422006; border: 1px solid #92400e; }
+  .menu-group.mg-profile .menu-group-label { color: #fed7aa; }
+  .menu-group.mg-reports { background: #1e1b4b; border: 1px solid #4c46a3; }
+  .menu-group.mg-reports .menu-group-label { color: #c7d2fe; }
+  .menu-group.mg-account { background: #1e293b; border: 1px solid #334155; }
+  .menu-group.mg-account .menu-group-label { color: #94a3b8; }
+  .quick-actions { display: flex; flex-direction: column; gap: 8px; }
   .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
   .emoji-opt {
     background: #1e293b; border: 2px solid #334155; border-radius: 10px; font-size: 22px;
@@ -502,13 +517,14 @@
 
     <div class="task-list" id="task-list"></div>
 
-    <button class="ghost-btn parent-only" id="edit-tasks-btn">✏️ Edit Missions</button>
-    <button class="ghost-btn parent-only" id="edit-kid-btn">🧒 Edit Kid Profile</button>
-    <button class="ghost-btn parent-only" id="game-settings-btn">🎮 Game Rules</button>
-    <button class="ghost-btn parent-only" id="level-rewards-btn">🎁 Level Rewards</button>
-    <button class="ghost-btn parent-only" id="report-btn">📊 Progress Report</button>
-    <button class="ghost-btn parent-only" id="link-code-btn">🔗 Get Kid's Link Code</button>
-    <button class="ghost-btn parent-only" id="reset-btn">🔄 Reset Checklist &amp; Feats for New Day</button>
+    <!-- Just the two things a parent needs mid-day, right where the
+         mission list is. Everything else lives one tap away in the
+         grouped Parent Menu (opened from the gear icon) — see the
+         design audit's "parent menu" finding. -->
+    <div class="quick-actions parent-only">
+      <button class="ghost-btn" id="edit-tasks-btn">✏️ Edit Missions</button>
+      <button class="ghost-btn" id="reset-btn">🔄 Reset for New Day</button>
+    </div>
   </div>
 
   <!-- ============ BUILDER SCREEN (tasks or feats) ============ -->
@@ -1438,11 +1454,22 @@
     }
 
     const banner = document.getElementById('now-banner');
-    if (!currentTask) { banner.classList.remove('show'); return; }
+    // The amber "Premium unlocked" banner is a static reassurance message;
+    // it uses almost the same amber gradient as this "do this now" banner.
+    // When both would show at once they read as one loud repeated block,
+    // so give the time-sensitive one priority — see the design audit's
+    // "color density" finding.
+    const premiumBanner = document.getElementById('tier-banner-premium');
+    if (!currentTask) {
+      banner.classList.remove('show');
+      if (premiumBanner) premiumBanner.classList.toggle('hidden', !isPremium());
+      return;
+    }
     const card = document.querySelector(`.task-card[data-task-id="${currentTask.id}"]`);
     if (card) card.classList.add('current-task');
     document.getElementById('now-banner-text').textContent = `Do this now: ${currentTask.title}`;
     banner.classList.add('show');
+    if (premiumBanner) premiumBanner.classList.add('hidden');
   }
   setInterval(updateNowBanner, 30000);
 
@@ -1956,10 +1983,11 @@
     }
   }
 
-  document.getElementById('report-btn').addEventListener('click', () => {
+  // Called from the grouped Parent Menu (see openParentMenu).
+  function openReportGate() {
     if (!isPremium()) { openUpgradeModal('The Progress Report is a Premium feature.'); return; }
     openReport();
-  });
+  }
   document.getElementById('report-back').addEventListener('click', closeReport);
   document.getElementById('report-print-btn').addEventListener('click', () => window.print());
   document.getElementById('report-pdf-btn').addEventListener('click', () => exportReportPDF(currentReportDays));
@@ -2291,8 +2319,8 @@
     });
   }
 
-  document.getElementById('link-code-btn').addEventListener('click', openLinkCodeModal);
-  document.getElementById('edit-kid-btn').addEventListener('click', openEditKidModal);
+  // openLinkCodeModal and openEditKidModal are called directly from the
+  // grouped Parent Menu (see openParentMenu).
 
   function openUpgradeModal(reason) {
     const root = document.getElementById('modal-root');
@@ -2491,10 +2519,11 @@
     });
   }
 
-  document.getElementById('game-settings-btn').addEventListener('click', () => {
+  // Called from the grouped Parent Menu (see openParentMenu).
+  function openGameRulesGate() {
     if (!isPremium()) { openUpgradeModal('Game Rules are a Premium feature.'); return; }
     openGameSettingsModal();
-  });
+  }
 
   // ---------------------------------------------------------------------
   // Level Rewards — a parent-defined real-world reward for reaching a
@@ -2557,10 +2586,11 @@
     render();
   }
 
-  document.getElementById('level-rewards-btn').addEventListener('click', () => {
+  // Called from the grouped Parent Menu (see openParentMenu).
+  function openLevelRewardsGate() {
     if (!isPremium()) { openUpgradeModal('Level Rewards are a Premium feature.'); return; }
     openLevelRewardsModal();
-  });
+  }
 
   // ---------------------------------------------------------------------
   // Onboarding tips — shown once when a parent first sets up their
@@ -3207,26 +3237,56 @@
   }
 
   // ---------------------------------------------------------------------
-  // Settings modal: sign out + dev-only premium toggle (placeholder until
-  // real StoreKit / Play Billing subscriptions are wired up in Phase 5)
+  // Parent Menu: one grouped sheet, opened from the header gear icon.
+  // Replaces the old flat 7-button stack under the mission list PLUS the
+  // separate settings modal that used to live here — see the design
+  // audit's "two disconnected settings surfaces" finding. Grouped by what
+  // each control is for: Koda's Profile, Reports & Sharing, Account.
   // ---------------------------------------------------------------------
-  document.getElementById('settings-btn').addEventListener('click', () => {
+  document.getElementById('settings-btn').addEventListener('click', openParentMenu);
+
+  function openParentMenu() {
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-overlay" id="modal-overlay">
         <div class="modal-sheet">
-          <h2>Settings</h2>
+          <h2>Parent Menu</h2>
           <p>Signed in as ${escapeHtml(currentUser ? currentUser.email : '')}</p>
-          <button class="ghost-btn" id="show-tips-btn">💡 Tips for Supporting Your Kid</button>
-          <button class="ghost-btn" id="enable-reminders-btn">🔔 Enable Reminders</button>
-          <button class="ghost-btn" id="dev-toggle-tier-btn">🧪 Dev: Toggle Premium (testing only)</button>
-          <button class="ghost-btn danger" id="sign-out-btn">Sign Out</button>
+
+          <div class="menu-group mg-profile">
+            <div class="menu-group-label">Koda's Profile</div>
+            <button class="ghost-btn" id="menu-edit-kid-btn">🧒 Edit Kid Profile</button>
+            <button class="ghost-btn" id="menu-game-settings-btn">🎮 Game Rules</button>
+            <button class="ghost-btn" id="menu-level-rewards-btn">🎁 Level Rewards</button>
+          </div>
+
+          <div class="menu-group mg-reports">
+            <div class="menu-group-label">Reports &amp; Sharing</div>
+            <button class="ghost-btn" id="menu-report-btn">📊 Progress Report</button>
+            <button class="ghost-btn" id="menu-link-code-btn">🔗 Get Kid's Link Code</button>
+          </div>
+
+          <div class="menu-group mg-account">
+            <div class="menu-group-label">Account</div>
+            <button class="ghost-btn" id="show-tips-btn">💡 Tips for Supporting Your Kid</button>
+            <button class="ghost-btn" id="enable-reminders-btn">🔔 Enable Reminders</button>
+            <button class="ghost-btn" id="dev-toggle-tier-btn">🧪 Dev: Toggle Premium (testing only)</button>
+            <button class="ghost-btn danger" id="sign-out-btn">Sign Out</button>
+          </div>
+
           <button class="link-btn" id="close-settings-btn">Close</button>
         </div>
       </div>
     `;
     document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
     document.getElementById('close-settings-btn').addEventListener('click', closeModal);
+
+    document.getElementById('menu-edit-kid-btn').addEventListener('click', () => { closeModal(); openEditKidModal(); });
+    document.getElementById('menu-game-settings-btn').addEventListener('click', () => { closeModal(); openGameRulesGate(); });
+    document.getElementById('menu-level-rewards-btn').addEventListener('click', () => { closeModal(); openLevelRewardsGate(); });
+    document.getElementById('menu-report-btn').addEventListener('click', () => { closeModal(); openReportGate(); });
+    document.getElementById('menu-link-code-btn').addEventListener('click', () => { closeModal(); openLinkCodeModal(); });
+
     document.getElementById('show-tips-btn').addEventListener('click', () => { closeModal(); openOnboardingTipsModal(); });
     document.getElementById('enable-reminders-btn').addEventListener('click', async () => {
       if (!window.Notification) { alert('Notifications are not supported in this browser.'); return; }
@@ -3243,7 +3303,7 @@
       closeModal();
       await signOut(auth);
     });
-  });
+  }
 
   function popCard(taskId) {
     const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
@@ -3618,28 +3678,37 @@
           sendNudge(`⏰ Time for: ${t.emoji || '⭐'} ${t.title}!`);
         }
       });
+    }
 
-      // Transition Cue: find whichever undone task is coming up soonest and,
-      // if it's within the configured window, give a gentle heads-up. This
-      // runs on the same always-on interval as the nudges above, so it
-      // fires no matter what's currently on screen — a mini-game modal, an
-      // in-progress task, anything — which is the whole point: the cue is
-      // about the moment coming up next, not about interrupting whatever's
-      // happening right now.
-      const cue = transitionCueFor(child);
-      if (cue.enabled) {
-        const upcoming = child.tasks
-          .filter(t => !(log.tasksEverDone && log.tasksEverDone[t.id]))
-          .map(t => ({ task: t, min: timeToMinutes(t.time) }))
-          .filter(x => x.min > 0)
-          .sort((a, b) => a.min - b.min)[0];
-        if (upcoming) {
-          const minutesUntil = upcoming.min - nowMin;
-          if (minutesUntil > 0 && minutesUntil <= cue.minutesBefore && !transitionCuedTaskIds.has(upcoming.task.id)) {
-            transitionCuedTaskIds.add(upcoming.task.id);
-            showTransitionCue(upcoming.task, minutesUntil);
-          }
-        }
+    // Transition Cue: find whichever undone task is coming up soonest and,
+    // if it's within the configured window, give a gentle heads-up. This
+    // runs on the same always-on interval as the nudges above, so it fires
+    // no matter what's currently on screen — a mini-game modal, an
+    // in-progress task, anything — which is the whole point: the cue is
+    // about the moment coming up next, not about interrupting whatever's
+    // happening right now. Deliberately NOT gated to sessionRole === 'kid'
+    // like the nudge above (a parent testing/supervising solo on one
+    // device should see it too — the nudge is kid-phrased "Time for
+    // X!", this banner isn't, so there's no reason to hide it from a
+    // parent session).
+    const cue = transitionCueFor(child);
+    if (cue.enabled) {
+      // Closest-in-the-future undone task, NOT earliest-clock-time-of-day —
+      // those aren't the same thing. The old version sorted by raw
+      // minute-of-day, so a still-undone task from earlier (say 9am,
+      // skipped) would always win over one actually coming up next (say
+      // 2pm), since 9am's number is smaller — even though 9am has already
+      // passed and produces a negative/invalid minutesUntil, silently
+      // preventing the cue from ever firing for the real upcoming task.
+      const upcoming = child.tasks
+        .filter(t => !(log.tasksEverDone && log.tasksEverDone[t.id]))
+        .filter(t => !!t.time) // has a time set at all — 00:00 is a valid time, not "unset"
+        .map(t => ({ task: t, minutesUntil: timeToMinutes(t.time) - nowMin }))
+        .filter(x => x.minutesUntil > 0) // only tasks still ahead of us today
+        .sort((a, b) => a.minutesUntil - b.minutesUntil)[0];
+      if (upcoming && upcoming.minutesUntil <= cue.minutesBefore && !transitionCuedTaskIds.has(upcoming.task.id)) {
+        transitionCuedTaskIds.add(upcoming.task.id);
+        showTransitionCue(upcoming.task, upcoming.minutesUntil);
       }
     }
 
