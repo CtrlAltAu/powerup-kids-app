@@ -370,27 +370,48 @@
   }
   .game-bubble {
     position: absolute; width: 46px; height: 46px; border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #818cf8, #4338ca);
+    background: radial-gradient(circle at 32% 26%, rgba(255,255,255,0.95), rgba(129,140,248,0.55) 42%, rgba(67,56,202,0.88) 82%);
     display: flex; align-items: center; justify-content: center; font-size: 22px;
-    cursor: pointer; border: none; animation: bubbleIn 0.15s ease;
+    cursor: pointer; border: 1px solid rgba(255,255,255,0.4);
+    box-shadow: inset -5px -5px 9px rgba(0,0,0,0.18), inset 3px 3px 7px rgba(255,255,255,0.55);
+    animation: bubbleIn 0.15s ease; transition: transform 0.14s ease, opacity 0.14s ease;
   }
+  .game-bubble.popping { transform: scale(1.55); opacity: 0; }
   @keyframes bubbleIn { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .game-hud { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 800; color: #cbd5e1; }
   .game-score { color: #facc15; font-size: 16px; }
   .pattern-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; height: 100%; padding: 12px; box-sizing: border-box; }
   .pattern-tile {
-    border-radius: 14px; border: none; font-size: 32px; display: flex; align-items: center;
-    justify-content: center; cursor: pointer; transition: filter 0.15s, transform 0.1s;
+    border-radius: 18px; border: none; font-size: 34px; display: flex; align-items: center;
+    justify-content: center; cursor: pointer; transition: filter 0.15s, transform 0.1s, box-shadow 0.15s;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.28), inset 0 3px 8px rgba(255,255,255,0.22), inset 0 -6px 10px rgba(0,0,0,0.18);
   }
-  .pattern-tile.flash { filter: brightness(1.6); transform: scale(1.05); }
-  .pattern-tile:active { transform: scale(0.95); }
-  .smash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; height: 100%; padding: 12px; box-sizing: border-box; }
-  .smash-hole {
-    border-radius: 14px; border: none; font-size: 30px; display: flex; align-items: center;
-    justify-content: center; cursor: pointer; background: #1e293b; transition: transform 0.08s;
+  .pattern-tile.flash {
+    filter: brightness(1.45); transform: scale(1.06) translateY(2px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.28), 0 0 26px 4px currentColor, inset 0 3px 8px rgba(255,255,255,0.3), inset 0 -6px 10px rgba(0,0,0,0.18);
   }
-  .smash-hole.up { background: radial-gradient(circle at 35% 30%, #fde68a, #f59e0b); animation: bubbleIn 0.12s ease; }
-  .smash-hole:active { transform: scale(0.92); }
+  .pattern-tile:active { transform: scale(0.94) translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.28), inset 0 3px 8px rgba(255,255,255,0.18); }
+  /* ---------- Sky Hop (secret game — Flappy-style) ---------- */
+  .game-area.sky {
+    background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 45%, #0c1a3d 100%);
+    border-color: #60a5fa; border-style: solid;
+  }
+  .sky-ground {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 14px;
+    background: linear-gradient(180deg, #92400e, #422006); border-top: 2px solid #b45309;
+  }
+  .sky-bird {
+    position: absolute; width: 34px; height: 34px; display: flex; align-items: center;
+    justify-content: center; font-size: 24px; z-index: 3;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45)); transition: transform 0.1s linear;
+  }
+  .sky-pipe-top, .sky-pipe-bottom {
+    position: absolute; box-sizing: border-box;
+    background: linear-gradient(180deg, #fda4af, #f43f5e 55%, #be123c);
+    border: 2px solid #fecdd3;
+  }
+  .sky-pipe-top { top: 0; border-radius: 0 0 10px 10px; }
+  .sky-pipe-bottom { bottom: 14px; border-radius: 10px 10px 0 0; }
 
   /* ---------- Progress report ---------- */
   #report-screen { display: flex; flex-direction: column; gap: 12px; }
@@ -1397,7 +1418,7 @@
           if (bonusUntil) {
             setTimeout(() => {
               burstFullScreen(160);
-              showHype(`🕹️ 7-day streak! Star Smash is unlocked as a surprise bonus for the next ${SECRET_GAME_BONUS_HOURS} hours!`, true);
+              showHype(`🐦 7-day streak! Sky Hop is unlocked as a surprise bonus for the next ${SECRET_GAME_BONUS_HOURS} hours!`, true);
               playFanfare();
             }, 1400);
           }
@@ -2445,7 +2466,7 @@
   }
 
   // ---------------------------------------------------------------------
-  // 🕹️ Star Smash — the "secret" third game. It's not shown in the game
+  // 🐦 Sky Hop — the "secret" third game. It's not shown in the game
   // picker at all until a kid either (a) reaches a level milestone, which
   // unlocks it for good, or (b) completes every mission for 7 days in a
   // row, which pops it open as a surprise 24-hour bonus window. Either
@@ -2484,7 +2505,7 @@
   // the "you just unlocked the secret game!" announcement into the same
   // level-up toast when the milestone level is the one just reached.
   function checkSecretGameMilestone(afterLevel) {
-    return afterLevel === SECRET_GAME_MILESTONE_LEVEL ? ' 🕹️ SECRET GAME UNLOCKED: Star Smash!' : '';
+    return afterLevel === SECRET_GAME_MILESTONE_LEVEL ? ' 🐦 SECRET GAME UNLOCKED: Sky Hop!' : '';
   }
 
   function openGameSettingsModal() {
@@ -2668,14 +2689,14 @@
   }
 
   // ---------------------------------------------------------------------
-  // Mini-games — Power Pop (reflex) and Pattern Match (memory). Anyone
+  // Mini-games — Bubble Burst (reflex/swarm) and Pattern Match (memory). Anyone
   // (parent or kid) can launch them from the header; Premium only, and
   // gated by that kid's Game Rules above.
   // ---------------------------------------------------------------------
   function stopAllGames() {
-    if (ppState) { clearTimeout(ppState.spawnTimeout); clearInterval(ppState.timerInterval); ppState.running = false; }
+    if (ppState) { clearInterval(ppState.timerInterval); ppState.running = false; }
     if (pmState) { pmState.running = false; pmState.accepting = false; }
-    if (ssState) { clearTimeout(ssState.moleTimeout); clearInterval(ssState.timerInterval); ssState.running = false; }
+    if (ssState) { if (ssState.rafId != null) cancelAnimationFrame(ssState.rafId); ssState.running = false; }
   }
 
   // Deliberately never mentions "more game time" here — the whole point of
@@ -2809,11 +2830,11 @@
       const patternRanked = [...entries].sort((a, b) => b.bestPattern - a.bestPattern);
       const smashRanked = [...entries].sort((a, b) => b.bestStarSmash - a.bestStarSmash);
       bodyHtml = `
-        <label class="field-label">⚡ Power Pop — most pops in 60s</label>
+        <label class="field-label">🫧 Bubble Burst — most pops in 60s</label>
         ${renderLeaderboardRows(powerPopRanked, 'bestPowerPop', 'pops', 'name')}
         <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
         ${renderLeaderboardRows(patternRanked, 'bestPattern', 'rounds', 'name')}
-        ${smashRanked.some(e => e.bestStarSmash > 0) ? `<label class="field-label" style="margin-top:6px;">🕹️ Star Smash — most smashes in 60s</label>${renderLeaderboardRows(smashRanked, 'bestStarSmash', 'smashes', 'name')}` : ''}
+        ${smashRanked.some(e => e.bestStarSmash > 0) ? `<label class="field-label" style="margin-top:6px;">🐦 Sky Hop — most gaps cleared</label>${renderLeaderboardRows(smashRanked, 'bestStarSmash', 'gaps', 'name')}` : ''}
       `;
     } else {
       let levelEntries = [], popEntries = [], patternEntries = [], smashEntries = [];
@@ -2837,12 +2858,12 @@
         <p style="font-size:12px; color:#94a3b8; margin-top:-4px;">Kids worldwide, shown only by nickname — never real names.</p>
         <label class="field-label">⭐ Top Levels</label>
         ${renderLeaderboardRows(levelEntries, 'level', '', 'nickname')}
-        <label class="field-label" style="margin-top:6px;">⚡ Power Pop — most pops in 60s</label>
+        <label class="field-label" style="margin-top:6px;">🫧 Bubble Burst — most pops in 60s</label>
         ${renderLeaderboardRows(popEntries, 'bestPowerPop', 'pops', 'nickname')}
         <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
         ${renderLeaderboardRows(patternEntries, 'bestPattern', 'rounds', 'nickname')}
-        <label class="field-label" style="margin-top:6px;">🕹️ Star Smash — most smashes in 60s</label>
-        ${renderLeaderboardRows(smashEntries, 'bestStarSmash', 'smashes', 'nickname')}
+        <label class="field-label" style="margin-top:6px;">🐦 Sky Hop — most gaps cleared</label>
+        ${renderLeaderboardRows(smashEntries, 'bestStarSmash', 'gaps', 'nickname')}
         ${optInNote}
       `;
     }
@@ -2888,7 +2909,7 @@
     }
     const secret = secretGameStatus();
     const secretButtonHtml = secret.unlocked
-      ? `<button class="ghost-btn" id="pick-starsmash-btn" style="font-size:15px; padding:14px; border-color:#facc15;">🕹️ Star Smash — secret game! ${secret.mode === 'bonus' ? '(bonus, limited time!)' : ''}</button>`
+      ? `<button class="ghost-btn" id="pick-starsmash-btn" style="font-size:15px; padding:14px; border-color:#facc15;">🐦 Sky Hop — secret game! ${secret.mode === 'bonus' ? '(bonus, limited time!)' : ''}</button>`
       : '';
     root.innerHTML = `
       <div class="modal-overlay centered" id="modal-overlay">
@@ -2896,7 +2917,7 @@
           <h2>🎮 Game Time!</h2>
           ${elig.remainingMinutes != null ? `<p>${Math.round(elig.remainingMinutes)} minute${Math.round(elig.remainingMinutes) === 1 ? '' : 's'} left today.</p>` : ''}
           <div style="display:flex; flex-direction:column; gap:10px; width:100%;">
-            <button class="ghost-btn" id="pick-powerpop-btn" style="font-size:15px; padding:14px;">⚡ Power Pop — tap the bubbles</button>
+            <button class="ghost-btn" id="pick-powerpop-btn" style="font-size:15px; padding:14px;">🫧 Bubble Burst — pop one, watch it multiply</button>
             <button class="ghost-btn" id="pick-pattern-btn" style="font-size:15px; padding:14px;">🧠 Pattern Match — repeat the sequence</button>
             ${secretButtonHtml}
           </div>
@@ -2921,21 +2942,28 @@
   // shared by both the family and worldwide leaderboards.
   const GAME_FIELDS = { powerPop: 'bestPowerPop', pattern: 'bestPattern', starSmash: 'bestStarSmash' };
 
-  // --- Power Pop: 20-second reflex bubble-tap, gets faster as it goes ---
+  // --- Bubble Burst (was Power Pop — same leaderboard field/key, new
+  // mechanic): tap a bubble and it splits into more nearby, so what
+  // starts as one lone bubble turns into a genuinely challenging swarm.
+  // Bubbles no longer vanish on their own — the challenge comes from
+  // managing the growing crowd (capped so it stays playable, not
+  // infinite) plus bubbles shrinking a little as the round goes on. ---
   let ppState = null;
-  const GAME_EMOJIS = ['⭐', '⚡', '🔥', '💎', '🎯'];
+  const GAME_EMOJIS = ['⭐', '⚡', '🔥', '💎', '🎯', '🎈', '🍬', '✨'];
   const POWER_POP_SECONDS = 60;
+  const BUBBLE_MAX_ON_SCREEN = 22;
+  const BUBBLE_SPAWN_PER_POP = 2;
 
   function openPowerPopModal() {
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-overlay centered" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
-          <h2>⚡ Power Pop</h2>
-          <p id="game-desc">Tap the bubbles before they vanish — they get faster the longer you go! 60 seconds, go!</p>
+          <h2>🫧 Bubble Burst</h2>
+          <p id="game-desc">Pop a bubble and it splits into more — the swarm grows fast! 60 seconds, go!</p>
           <div class="game-hud" style="width:100%;">
             <span>⏱️ <span id="game-timer">${POWER_POP_SECONDS}</span>s</span>
-            <span class="game-score">⭐ <span id="game-score">0</span></span>
+            <span class="game-score">🫧 <span id="game-score">0</span></span>
           </div>
           <div class="game-area" id="game-area"></div>
           <button class="primary-btn" id="game-start-btn" style="width:100%;">Start</button>
@@ -2959,13 +2987,14 @@
     startBtn.textContent = 'Playing…';
     const area = document.getElementById('game-area');
     area.innerHTML = '';
-    ppState = { score: 0, timeLeft: POWER_POP_SECONDS, running: true, startedAt: Date.now() };
+    ppState = { score: 0, timeLeft: POWER_POP_SECONDS, running: true, startedAt: Date.now(), bubbleCount: 0 };
     document.getElementById('game-score').textContent = '0';
     document.getElementById('game-timer').textContent = String(POWER_POP_SECONDS);
     const descEl = document.getElementById('game-desc');
-    if (descEl) descEl.textContent = 'Tap the bubbles before they vanish — they get faster the longer you go! 60 seconds, go!';
+    if (descEl) descEl.textContent = 'Pop a bubble and it splits into more — the swarm grows fast! 60 seconds, go!';
 
-    scheduleNextBubble(area);
+    const rect = area.getBoundingClientRect();
+    spawnBubble(area, rect.width / 2, rect.height / 2);
     ppState.timerInterval = setInterval(() => {
       if (!ppState) return;
       ppState.timeLeft--;
@@ -2975,42 +3004,64 @@
     }, 1000);
   }
 
-  function scheduleNextBubble(area) {
-    if (!ppState || !ppState.running) return;
+  // Bubbles get a little smaller as the round goes on, on top of the
+  // swarm growing — two different kinds of pressure instead of one, same
+  // "keeps getting harder, not a plateau" spirit as the old timer-ramp.
+  function bubbleSizeNow() {
+    if (!ppState) return 46;
     const elapsedFrac = 1 - (ppState.timeLeft / POWER_POP_SECONDS);
-    const spawnDelay = Math.max(200, 750 - elapsedFrac * 550); // ramps 750ms -> 200ms over the full 60s, so it keeps getting harder rather than plateauing early
-    ppState.spawnTimeout = setTimeout(() => {
-      spawnBubble(area);
-      scheduleNextBubble(area);
-    }, spawnDelay);
+    return Math.max(30, 46 - elapsedFrac * 16);
   }
 
-  function spawnBubble(area) {
+  function spawnBubble(area, atX, atY) {
     if (!ppState || !ppState.running || !area) return;
-    const elapsedFrac = 1 - (ppState.timeLeft / POWER_POP_SECONDS);
-    const lifetime = Math.max(420, 1100 - elapsedFrac * 680); // ramps 1100ms -> 420ms over the full 60s
     const rect = area.getBoundingClientRect();
-    const size = 46;
-    const x = Math.random() * Math.max(0, rect.width - size);
-    const y = Math.random() * Math.max(0, rect.height - size);
+    const size = bubbleSizeNow();
+    let x, y;
+    if (atX != null && atY != null) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 18 + Math.random() * 42;
+      x = atX + Math.cos(angle) * dist - size / 2;
+      y = atY + Math.sin(angle) * dist - size / 2;
+    } else {
+      x = Math.random() * Math.max(0, rect.width - size);
+      y = Math.random() * Math.max(0, rect.height - size);
+    }
+    x = Math.min(Math.max(0, x), Math.max(0, rect.width - size));
+    y = Math.min(Math.max(0, y), Math.max(0, rect.height - size));
+
     const bubble = document.createElement('button');
     bubble.className = 'game-bubble';
+    bubble.style.width = size + 'px';
+    bubble.style.height = size + 'px';
     bubble.style.left = x + 'px';
     bubble.style.top = y + 'px';
+    bubble.style.fontSize = Math.round(size * 0.48) + 'px';
     bubble.textContent = GAME_EMOJIS[Math.floor(Math.random() * GAME_EMOJIS.length)];
+    ppState.bubbleCount++;
     let popped = false;
-    const remove = () => { if (bubble.parentNode) bubble.parentNode.removeChild(bubble); };
+    const removeDom = () => { if (bubble.parentNode) bubble.parentNode.removeChild(bubble); };
     bubble.addEventListener('click', () => {
       if (popped || !ppState || !ppState.running) return;
       popped = true;
       ppState.score++;
+      ppState.bubbleCount = Math.max(0, ppState.bubbleCount - 1);
       const scoreEl = document.getElementById('game-score');
       if (scoreEl) scoreEl.textContent = String(ppState.score);
       if (navigator.vibrate) navigator.vibrate(20);
-      remove();
+      bubble.classList.add('popping');
+      bubble.style.pointerEvents = 'none';
+      setTimeout(removeDom, 140);
+      const cx = x + size / 2, cy = y + size / 2;
+      // Multiply, up to the on-screen cap — once capped, popping just
+      // clears space instead of adding more, so the swarm settles into a
+      // genuinely busy (not infinite) ceiling.
+      const room = BUBBLE_MAX_ON_SCREEN - ppState.bubbleCount;
+      const spawnCount = Math.max(0, Math.min(BUBBLE_SPAWN_PER_POP, room));
+      for (let i = 0; i < spawnCount; i++) spawnBubble(area, cx, cy);
+      if (ppState.bubbleCount === 0 && spawnCount === 0) spawnBubble(area); // never let the swarm fully die out mid-round
     });
     area.appendChild(bubble);
-    setTimeout(remove, lifetime);
   }
 
   async function endPowerPop() {
@@ -3023,15 +3074,32 @@
     if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
     const descEl = document.getElementById('game-desc');
     if (descEl) descEl.textContent = `🏁 Final Score: ${finalScore} bubble${finalScore === 1 ? '' : 's'} popped!`;
-    await finishGameRound(finalScore, startedAt, '⚡ Power Pop', 'powerPop');
+    await finishGameRound(finalScore, startedAt, '🫧 Bubble Burst', 'powerPop');
   }
 
-  // --- Pattern Match: Simon-says style memory game ---
+  // --- Pattern Match: Simon-says style memory game. The mechanic tested
+  // great as-is — this is a visual/audio polish pass only: elemental
+  // tiles with a glossy gradient + glow instead of flat colored squares,
+  // and each tile now plays its own note (classic Simon-style), so a
+  // round is a little tune, not just a silent flash sequence. ---
   let pmState = null;
   const PATTERN_TILES = [
-    { emoji: '🔴', color: '#ef4444' }, { emoji: '🟡', color: '#facc15' },
-    { emoji: '🟢', color: '#10b981' }, { emoji: '🔵', color: '#3b82f6' }
+    { emoji: '🔥', bg: 'radial-gradient(circle at 32% 26%, #fecaca, #ef4444 55%, #b91c1c)', glow: '#ef4444', note: 392.00 },
+    { emoji: '💧', bg: 'radial-gradient(circle at 32% 26%, #bfdbfe, #3b82f6 55%, #1d4ed8)', glow: '#3b82f6', note: 493.88 },
+    { emoji: '🍃', bg: 'radial-gradient(circle at 32% 26%, #bbf7d0, #10b981 55%, #047857)', glow: '#10b981', note: 587.33 },
+    { emoji: '⚡', bg: 'radial-gradient(circle at 32% 26%, #fef08a, #f59e0b 55%, #b45309)', glow: '#f59e0b', note: 783.99 }
   ];
+
+  function playPatternNote(idx) {
+    const ctx = getAudioCtx(); if (!ctx) return;
+    const tile = PATTERN_TILES[idx];
+    if (!tile) return;
+    playNote(tile.note, ctx.currentTime, 0.3, 'sine', 0.22);
+  }
+  function playPatternWrongBuzz() {
+    const ctx = getAudioCtx(); if (!ctx) return;
+    playNote(150, ctx.currentTime, 0.35, 'sawtooth', 0.14);
+  }
 
   function openPatternModal() {
     const root = document.getElementById('modal-root');
@@ -3054,7 +3122,8 @@
     PATTERN_TILES.forEach((t, i) => {
       const btn = document.createElement('button');
       btn.className = 'pattern-tile';
-      btn.style.background = t.color;
+      btn.style.background = t.bg;
+      btn.style.color = t.glow; // drives the "currentColor" glow on .flash
       btn.textContent = t.emoji;
       btn.addEventListener('click', () => onPatternTap(i));
       grid.appendChild(btn);
@@ -3107,6 +3176,7 @@
         tile.classList.add('flash');
         setTimeout(() => tile.classList.remove('flash'), 320);
       }
+      playPatternNote(pmState.sequence[i]);
       i++;
       setTimeout(step, 500);
     };
@@ -3117,9 +3187,11 @@
     if (!pmState || !pmState.running || !pmState.accepting) return;
     const tiles = document.querySelectorAll('.pattern-tile');
     if (tiles[idx]) { tiles[idx].classList.add('flash'); setTimeout(() => tiles[idx].classList.remove('flash'), 200); }
+    playPatternNote(idx);
     const expected = pmState.sequence[pmState.userIdx];
     if (idx !== expected) {
       pmState.accepting = false;
+      playPatternWrongBuzz();
       endPatternMatch();
       return;
     }
@@ -3144,37 +3216,48 @@
     await finishGameRound(finalScore, startedAt, '🧠 Pattern Match', 'pattern');
   }
 
-  // --- Star Smash: the secret whack-a-mole game — a star pops up in one
-  // of 9 holes for a shrinking window; tap it before it vanishes. Every
-  // 5-in-a-row streak earns a small combo bonus. ---
+  // --- Sky Hop (was Star Smash — same "secret game" unlock system, same
+  // leaderboard field/key): a lightweight Flappy-Bird-style game. Tap
+  // anywhere in the sky to flap upward; gravity pulls you back down the
+  // rest of the time. One point per gap cleared. Uses the kid's own
+  // equipped icon as the flyer — a nice personalization touch for a
+  // "secret" reward game. The gap is deliberately generous (well over a
+  // third of the play area) so this stays fun rather than punishing on a
+  // touchscreen, and bumping the ceiling is safe — only the ground and
+  // the obstacles end the round. ---
   let ssState = null;
-  const STAR_SMASH_SECONDS = 60;
-  const STAR_SMASH_HOLES = 9;
+  // Deliberately gentler than authentic Flappy Bird — this is a reward
+  // game for kids who may have variable motor/reaction-time control on a
+  // touchscreen, so falling should feel forgiving, not twitchy.
+  const SKY_GRAVITY = 1100;         // px/s^2
+  const SKY_FLAP_VELOCITY = -360;   // px/s (negative = up)
+  const SKY_MAX_FALL_SPEED = 520;   // px/s, caps how fast gravity can pull you down
+  const SKY_BIRD_SIZE = 34;
+  const SKY_PIPE_WIDTH = 46;
+  const SKY_PIPE_GAP = 116;
+  const SKY_PIPE_SPEED = 110;       // px/s
+  const SKY_PIPE_INTERVAL = 1500;   // ms between obstacles
+  const SKY_GROUND_HEIGHT = 14;
+  const SKY_MAX_ROUND_SECONDS = 90; // safety cap so one very skilled round can't eat the whole game-time budget
 
   function openStarSmashModal() {
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-overlay centered" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
-          <h2>🕹️ Star Smash</h2>
-          <p id="game-desc">Smash the star before it disappears! It gets faster the longer you go. 60 seconds — go!</p>
+          <h2>🐦 Sky Hop</h2>
+          <p id="game-desc">Tap to flap and weave through the gaps — one point per gap you clear!</p>
           <div class="game-hud" style="width:100%;">
-            <span>⏱️ <span id="game-timer">${STAR_SMASH_SECONDS}</span>s</span>
             <span class="game-score">⭐ <span id="game-score">0</span></span>
           </div>
-          <div class="game-area" id="game-area" style="padding:0;"><div class="smash-grid" id="smash-grid"></div></div>
+          <div class="game-area sky" id="game-area" style="padding:0;">
+            <div class="sky-ground"></div>
+          </div>
           <button class="primary-btn" id="game-start-btn" style="width:100%;">Start</button>
           <button class="link-btn" id="close-game-btn">Close</button>
         </div>
       </div>
     `;
-    const grid = document.getElementById('smash-grid');
-    for (let i = 0; i < STAR_SMASH_HOLES; i++) {
-      const hole = document.createElement('button');
-      hole.className = 'smash-hole';
-      hole.dataset.idx = String(i);
-      grid.appendChild(hole);
-    }
     const finishAndClose = async () => {
       if (ssState && ssState.running) await endStarSmash();
       closeModal();
@@ -3182,6 +3265,13 @@
     document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') finishAndClose(); });
     document.getElementById('close-game-btn').addEventListener('click', finishAndClose);
     document.getElementById('game-start-btn').addEventListener('click', startStarSmash);
+    document.getElementById('game-area').addEventListener('click', skyFlap);
+  }
+
+  function skyFlap() {
+    if (!ssState || !ssState.running) return;
+    ssState.velocity = SKY_FLAP_VELOCITY;
+    if (navigator.vibrate) navigator.vibrate(12);
   }
 
   function startStarSmash() {
@@ -3190,73 +3280,127 @@
     startBtn.disabled = true;
     startBtn.textContent = 'Playing…';
     document.getElementById('game-score').textContent = '0';
-    document.getElementById('game-timer').textContent = String(STAR_SMASH_SECONDS);
     const descEl = document.getElementById('game-desc');
-    if (descEl) descEl.textContent = 'Smash the star before it disappears! It gets faster the longer you go. 60 seconds — go!';
-    document.querySelectorAll('.smash-hole').forEach(h => { h.classList.remove('up'); h.textContent = ''; });
+    if (descEl) descEl.textContent = 'Tap to flap and weave through the gaps!';
 
-    ssState = { score: 0, streak: 0, timeLeft: STAR_SMASH_SECONDS, running: true, startedAt: Date.now(), activeIdx: -1 };
-    scheduleNextMole();
-    ssState.timerInterval = setInterval(() => {
-      if (!ssState) return;
-      ssState.timeLeft--;
-      const timerEl = document.getElementById('game-timer');
-      if (timerEl) timerEl.textContent = String(ssState.timeLeft);
-      if (ssState.timeLeft <= 0) endStarSmash();
-    }, 1000);
+    const area = document.getElementById('game-area');
+    area.querySelectorAll('.sky-bird, .sky-pipe-top, .sky-pipe-bottom').forEach(el => el.remove());
+    const rect = area.getBoundingClientRect();
+    const areaHeight = rect.height || 260;
+    const areaWidth = rect.width || 320;
+    const birdX = Math.round(areaWidth * 0.22);
+
+    const child = activeChild();
+    const birdEmoji = (childLogsData && childLogsData.equippedEmoji) || (child && child.emoji) || '🐦';
+    const birdEl = document.createElement('div');
+    birdEl.className = 'sky-bird';
+    birdEl.textContent = birdEmoji;
+    birdEl.style.left = birdX + 'px';
+    area.appendChild(birdEl);
+
+    ssState = {
+      running: true, startedAt: Date.now(), score: 0,
+      birdY: areaHeight / 2 - SKY_BIRD_SIZE / 2, velocity: 0,
+      birdX, areaHeight, areaWidth,
+      pipes: [], sinceSpawn: 0, lastTime: null, rafId: null, birdEl
+    };
+    birdEl.style.top = ssState.birdY + 'px';
+    ssState.rafId = requestAnimationFrame(skyTick);
   }
 
-  function scheduleNextMole() {
-    if (!ssState || !ssState.running) return;
-    const elapsedFrac = 1 - (ssState.timeLeft / STAR_SMASH_SECONDS);
-    const gapDelay = Math.max(180, 550 - elapsedFrac * 370); // gap before next mole keeps shrinking over the full 60s
-    ssState.moleTimeout = setTimeout(() => popMole(), gapDelay);
+  function skySpawnPipe(area) {
+    const gapMin = 24;
+    const gapMax = Math.max(gapMin + 20, ssState.areaHeight - SKY_GROUND_HEIGHT - SKY_PIPE_GAP - gapMin);
+    const gapTop = gapMin + Math.random() * (gapMax - gapMin);
+
+    const topEl = document.createElement('div');
+    topEl.className = 'sky-pipe-top';
+    topEl.style.width = SKY_PIPE_WIDTH + 'px';
+    topEl.style.height = gapTop + 'px';
+    topEl.style.left = ssState.areaWidth + 'px';
+
+    const bottomEl = document.createElement('div');
+    bottomEl.className = 'sky-pipe-bottom';
+    bottomEl.style.width = SKY_PIPE_WIDTH + 'px';
+    bottomEl.style.height = Math.max(0, ssState.areaHeight - SKY_GROUND_HEIGHT - gapTop - SKY_PIPE_GAP) + 'px';
+    bottomEl.style.left = ssState.areaWidth + 'px';
+
+    area.appendChild(topEl);
+    area.appendChild(bottomEl);
+    ssState.pipes.push({ x: ssState.areaWidth, gapTop, passed: false, topEl, bottomEl });
   }
 
-  function popMole() {
+  function playSkyPoint() {
+    const ctx = getAudioCtx(); if (!ctx) return;
+    playNote(880, ctx.currentTime, 0.12, 'sine', 0.16);
+  }
+
+  function skyTick(now) {
     if (!ssState || !ssState.running) return;
-    const elapsedFrac = 1 - (ssState.timeLeft / STAR_SMASH_SECONDS);
-    const upTime = Math.max(380, 950 - elapsedFrac * 570); // ramps 950ms -> 380ms over the full 60s, so a sharp kid keeps getting real challenge, not a plateau
-    const holes = document.querySelectorAll('.smash-hole');
-    if (!holes.length) return;
-    const idx = Math.floor(Math.random() * holes.length);
-    ssState.activeIdx = idx;
-    const hole = holes[idx];
-    hole.classList.add('up');
-    hole.textContent = '🌟';
-    let smashed = false;
-    const clear = () => {
-      hole.classList.remove('up');
-      hole.textContent = '';
-      if (ssState) ssState.activeIdx = -1;
-    };
-    hole.onclick = () => {
-      if (smashed || !ssState || !ssState.running || ssState.activeIdx !== idx) return;
-      smashed = true;
-      ssState.streak++;
-      const combo = ssState.streak > 0 && ssState.streak % 5 === 0 ? 2 : 1;
-      ssState.score += combo;
-      const scoreEl = document.getElementById('game-score');
-      if (scoreEl) scoreEl.textContent = String(ssState.score);
-      if (navigator.vibrate) navigator.vibrate(combo > 1 ? [20, 40, 20] : 20);
-      clear();
-      scheduleNextMole();
-    };
-    ssState.moleTimeout = setTimeout(() => {
-      if (!smashed) { ssState.streak = 0; clear(); scheduleNextMole(); }
-    }, upTime);
+    if (ssState.lastTime == null) ssState.lastTime = now;
+    const dt = Math.min(0.05, (now - ssState.lastTime) / 1000);
+    ssState.lastTime = now;
+
+    if ((Date.now() - ssState.startedAt) / 1000 >= SKY_MAX_ROUND_SECONDS) { endStarSmash(); return; }
+
+    ssState.velocity = Math.min(SKY_MAX_FALL_SPEED, ssState.velocity + SKY_GRAVITY * dt);
+    ssState.birdY += ssState.velocity * dt;
+    const maxY = ssState.areaHeight - SKY_GROUND_HEIGHT - SKY_BIRD_SIZE;
+    if (ssState.birdY <= 0) { ssState.birdY = 0; ssState.velocity = 0; } // ceiling: a safe bump, not a crash
+    if (ssState.birdY >= maxY) { ssState.birdY = maxY; endStarSmash(); return; } // ground: that's a crash
+    if (ssState.birdEl) {
+      ssState.birdEl.style.top = ssState.birdY + 'px';
+      const tilt = Math.max(-25, Math.min(75, ssState.velocity / 8));
+      ssState.birdEl.style.transform = `rotate(${tilt}deg)`;
+    }
+
+    const area = document.getElementById('game-area');
+    ssState.sinceSpawn += dt * 1000;
+    if (ssState.sinceSpawn >= SKY_PIPE_INTERVAL) {
+      ssState.sinceSpawn = 0;
+      if (area) skySpawnPipe(area);
+    }
+
+    for (let i = ssState.pipes.length - 1; i >= 0; i--) {
+      const pipe = ssState.pipes[i];
+      pipe.x -= SKY_PIPE_SPEED * dt;
+      pipe.topEl.style.left = pipe.x + 'px';
+      pipe.bottomEl.style.left = pipe.x + 'px';
+
+      if (!pipe.passed && pipe.x + SKY_PIPE_WIDTH < ssState.birdX) {
+        pipe.passed = true;
+        ssState.score++;
+        const scoreEl = document.getElementById('game-score');
+        if (scoreEl) scoreEl.textContent = String(ssState.score);
+        playSkyPoint();
+      }
+
+      const horizontalOverlap = pipe.x < ssState.birdX + SKY_BIRD_SIZE && pipe.x + SKY_PIPE_WIDTH > ssState.birdX;
+      if (horizontalOverlap) {
+        const hitsTop = ssState.birdY < pipe.gapTop;
+        const hitsBottom = ssState.birdY + SKY_BIRD_SIZE > pipe.gapTop + SKY_PIPE_GAP;
+        if (hitsTop || hitsBottom) { endStarSmash(); return; }
+      }
+
+      if (pipe.x + SKY_PIPE_WIDTH < -10) {
+        pipe.topEl.remove(); pipe.bottomEl.remove();
+        ssState.pipes.splice(i, 1);
+      }
+    }
+
+    ssState.rafId = requestAnimationFrame(skyTick);
   }
 
   async function endStarSmash() {
     const finalScore = ssState ? ssState.score : 0;
     const startedAt = ssState ? ssState.startedAt : Date.now();
     stopAllGames();
-    document.querySelectorAll('.smash-hole').forEach(h => { h.classList.remove('up'); h.textContent = ''; h.onclick = null; });
     const startBtn = document.getElementById('game-start-btn');
     if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
     const descEl = document.getElementById('game-desc');
-    if (descEl) descEl.textContent = `🏁 Final Score: ${finalScore} star${finalScore === 1 ? '' : 's'} smashed!`;
-    await finishGameRound(finalScore, startedAt, '🕹️ Star Smash', 'starSmash');
+    if (descEl) descEl.textContent = `🏁 Nice flying! ${finalScore} gap${finalScore === 1 ? '' : 's'} cleared.`;
+    if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+    await finishGameRound(finalScore, startedAt, '🐦 Sky Hop', 'starSmash');
   }
 
   // ---------------------------------------------------------------------
