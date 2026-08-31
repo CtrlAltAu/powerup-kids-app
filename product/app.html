@@ -374,10 +374,22 @@
     display: flex; align-items: center; justify-content: center; font-size: 22px;
     cursor: pointer; border: 1px solid rgba(255,255,255,0.4);
     box-shadow: inset -5px -5px 9px rgba(0,0,0,0.18), inset 3px 3px 7px rgba(255,255,255,0.55);
-    animation: bubbleIn 0.15s ease; transition: transform 0.14s ease, opacity 0.14s ease;
+    /* scale/opacity handle the pop-in and pop-out; translate (a separate,
+       independently-animatable transform property) handles the gentle
+       float, so the two animations never fight over the same property. */
+    scale: 1;
+    animation: bubbleIn 0.18s ease, bubbleFloat var(--fdur, 3.4s) ease-in-out var(--fdelay, 0s) infinite;
+    transition: scale 0.14s ease, opacity 0.14s ease;
   }
-  .game-bubble.popping { transform: scale(1.55); opacity: 0; }
-  @keyframes bubbleIn { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .game-bubble.popping { animation: none; scale: 1.55; opacity: 0; }
+  @keyframes bubbleIn { from { scale: 0.3; opacity: 0; } to { scale: 1; opacity: 1; } }
+  @keyframes bubbleFloat {
+    0%   { translate: 0 0; }
+    25%  { translate: var(--fx, 5px) calc(-1 * var(--fy, 7px)); }
+    50%  { translate: calc(-1 * var(--fx, 5px)) var(--fy, 7px); }
+    75%  { translate: calc(var(--fx, 5px) * 0.6) calc(var(--fy, 7px) * 0.5); }
+    100% { translate: 0 0; }
+  }
   .game-hud { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 800; color: #cbd5e1; }
   .game-score { color: #facc15; font-size: 16px; }
   .pattern-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; height: 100%; padding: 12px; box-sizing: border-box; }
@@ -412,6 +424,19 @@
   }
   .sky-pipe-top { top: 0; border-radius: 0 0 10px 10px; }
   .sky-pipe-bottom { bottom: 14px; border-radius: 10px 10px 0 0; }
+  .sky-level-badge {
+    background: rgba(99,102,241,0.18); border: 1px solid rgba(99,102,241,0.5);
+    border-radius: 999px; padding: 2px 10px; font-weight: 800; color: #c7d2fe;
+  }
+  .sky-level-badge.pulse { animation: skyLevelPulse 0.5s ease; }
+  @keyframes skyLevelPulse { 0% { transform: scale(1); } 40% { transform: scale(1.35); background: rgba(250,204,21,0.35); } 100% { transform: scale(1); } }
+  .sky-goal-row { font-size: 12px; font-weight: 700; color: #94a3b8; width: 100%; text-align: center; margin-top: -4px; }
+  .game-countdown {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 54px; font-weight: 900; color: #fef3c7; text-shadow: 0 3px 10px rgba(0,0,0,0.55);
+    z-index: 5; pointer-events: none; animation: countdownPop 0.55s ease;
+  }
+  @keyframes countdownPop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
   /* ---------- Progress report ---------- */
   #report-screen { display: flex; flex-direction: column; gap: 12px; }
@@ -2696,7 +2721,12 @@
   function stopAllGames() {
     if (ppState) { clearInterval(ppState.timerInterval); ppState.running = false; }
     if (pmState) { pmState.running = false; pmState.accepting = false; }
-    if (ssState) { if (ssState.rafId != null) cancelAnimationFrame(ssState.rafId); ssState.running = false; }
+    if (ssState) {
+      if (ssState.rafId != null) cancelAnimationFrame(ssState.rafId);
+      if (ssState.countdownTimeout) clearTimeout(ssState.countdownTimeout);
+      if (ssState.levelPulseTimeout) clearTimeout(ssState.levelPulseTimeout);
+      ssState.running = false;
+    }
   }
 
   // Deliberately never mentions "more game time" here — the whole point of
@@ -2951,8 +2981,18 @@
   let ppState = null;
   const GAME_EMOJIS = ['⭐', '⚡', '🔥', '💎', '🎯', '🎈', '🍬', '✨'];
   const POWER_POP_SECONDS = 60;
-  const BUBBLE_MAX_ON_SCREEN = 22;
-  const BUBBLE_SPAWN_PER_POP = 2;
+  // Lowered from 22 — Tim's feedback was the screen filled too fast and
+  // became clutter. A smaller cap keeps the swarm readable at its busiest.
+  const BUBBLE_MAX_ON_SCREEN = 12;
+
+  // Spawn count ramps instead of always multiplying by 2 — the first few
+  // pops just replace 1-for-1 so the round starts calm, then eases into
+  // the real "splits into more" challenge as the score climbs.
+  function bubbleSpawnPerPop() {
+    if (!ppState) return 1;
+    if (ppState.score < 5) return 1;
+    return 2;
+  }
 
   function openPowerPopModal() {
     const root = document.getElementById('modal-root');
@@ -3038,6 +3078,13 @@
     bubble.style.top = y + 'px';
     bubble.style.fontSize = Math.round(size * 0.48) + 'px';
     bubble.textContent = GAME_EMOJIS[Math.floor(Math.random() * GAME_EMOJIS.length)];
+    // Randomize each bubble's float so the swarm feels alive rather than
+    // synced — a negative delay starts each one mid-cycle instead of all
+    // bobbing in lockstep.
+    bubble.style.setProperty('--fx', (4 + Math.random() * 5).toFixed(1) + 'px');
+    bubble.style.setProperty('--fy', (5 + Math.random() * 6).toFixed(1) + 'px');
+    bubble.style.setProperty('--fdur', (2.6 + Math.random() * 1.6).toFixed(2) + 's');
+    bubble.style.setProperty('--fdelay', (-Math.random() * 3).toFixed(2) + 's');
     ppState.bubbleCount++;
     let popped = false;
     const removeDom = () => { if (bubble.parentNode) bubble.parentNode.removeChild(bubble); };
@@ -3057,7 +3104,7 @@
       // clears space instead of adding more, so the swarm settles into a
       // genuinely busy (not infinite) ceiling.
       const room = BUBBLE_MAX_ON_SCREEN - ppState.bubbleCount;
-      const spawnCount = Math.max(0, Math.min(BUBBLE_SPAWN_PER_POP, room));
+      const spawnCount = Math.max(0, Math.min(bubbleSpawnPerPop(), room));
       for (let i = 0; i < spawnCount; i++) spawnBubble(area, cx, cy);
       if (ppState.bubbleCount === 0 && spawnCount === 0) spawnBubble(area); // never let the swarm fully die out mid-round
     });
@@ -3226,19 +3273,27 @@
   // touchscreen, and bumping the ceiling is safe — only the ground and
   // the obstacles end the round. ---
   let ssState = null;
-  // Deliberately gentler than authentic Flappy Bird — this is a reward
-  // game for kids who may have variable motor/reaction-time control on a
-  // touchscreen, so falling should feel forgiving, not twitchy.
-  const SKY_GRAVITY = 1100;         // px/s^2
-  const SKY_FLAP_VELOCITY = -360;   // px/s (negative = up)
-  const SKY_MAX_FALL_SPEED = 520;   // px/s, caps how fast gravity can pull you down
+  // Retuned a second time per feedback that the bird still "drops too
+  // far" even after the first softening pass — gravity, fall speed and
+  // flap power are all down again so a missed tap costs less altitude.
+  const SKY_GRAVITY = 780;          // px/s^2
+  const SKY_FLAP_VELOCITY = -300;   // px/s (negative = up)
+  const SKY_MAX_FALL_SPEED = 400;   // px/s, caps how fast gravity can pull you down
   const SKY_BIRD_SIZE = 34;
   const SKY_PIPE_WIDTH = 46;
-  const SKY_PIPE_GAP = 116;
+  const SKY_PIPE_GAP = 130;
   const SKY_PIPE_SPEED = 110;       // px/s
   const SKY_PIPE_INTERVAL = 1500;   // ms between obstacles
   const SKY_GROUND_HEIGHT = 14;
-  const SKY_MAX_ROUND_SECONDS = 90; // safety cap so one very skilled round can't eat the whole game-time budget
+  // No more time cap — the round is governed by a flap budget instead
+  // (see skyLevelFlapBudget), so a skilled kid can keep going as long as
+  // they still have flaps and haven't crashed.
+
+  // Level system: clear the goal's worth of gaps before flaps run out to
+  // level up. Leftover flaps roll into the next level's budget instead of
+  // resetting, so a strong level banks a cushion going into the next.
+  function skyLevelGoal(level) { return 4 + (level - 1) * 2; }
+  function skyLevelFlapBudget(level) { return skyLevelGoal(level) * 2 + 6; }
 
   function openStarSmashModal() {
     const root = document.getElementById('modal-root');
@@ -3246,10 +3301,13 @@
       <div class="modal-overlay centered" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
           <h2>🐦 Sky Hop</h2>
-          <p id="game-desc">Tap to flap and weave through the gaps — one point per gap you clear!</p>
+          <p id="game-desc">Tap to flap — clear each level's goal before your flaps run out!</p>
           <div class="game-hud" style="width:100%;">
+            <span>🪽 <span id="game-flaps">${skyLevelFlapBudget(1)}</span></span>
+            <span class="sky-level-badge" id="game-level-badge">Lv <span id="game-level">1</span></span>
             <span class="game-score">⭐ <span id="game-score">0</span></span>
           </div>
+          <div class="sky-goal-row">Goal: <span id="game-goal-progress">0</span>/<span id="game-goal-total">${skyLevelGoal(1)}</span> gaps</div>
           <div class="game-area sky" id="game-area" style="padding:0;">
             <div class="sky-ground"></div>
           </div>
@@ -3269,9 +3327,54 @@
   }
 
   function skyFlap() {
-    if (!ssState || !ssState.running) return;
+    if (!ssState || !ssState.running || ssState.countdownActive) return;
+    if (ssState.flapsLeft <= 0) { if (navigator.vibrate) navigator.vibrate(5); return; }
+    ssState.flapsLeft--;
+    const flapsEl = document.getElementById('game-flaps');
+    if (flapsEl) flapsEl.textContent = String(ssState.flapsLeft);
     ssState.velocity = SKY_FLAP_VELOCITY;
     if (navigator.vibrate) navigator.vibrate(12);
+  }
+
+  // "3, 2, 1, Go!" before gravity/input take effect each round. Each step
+  // is a fresh element so the pop-in keyframe replays every time.
+  function skyShowCountdownStep(area, text) {
+    const old = area.querySelector('.game-countdown');
+    if (old) old.remove();
+    const el = document.createElement('div');
+    el.className = 'game-countdown';
+    el.textContent = text;
+    area.appendChild(el);
+  }
+
+  function runSkyCountdown(area) {
+    const steps = ['3', '2', '1', 'Go!'];
+    let i = 0;
+    const next = () => {
+      if (!ssState) return; // round was closed/cancelled mid-countdown
+      if (i < steps.length) {
+        skyShowCountdownStep(area, steps[i]);
+        if (navigator.vibrate) navigator.vibrate(10);
+        i++;
+        ssState.countdownTimeout = setTimeout(next, i === steps.length ? 450 : 550);
+      } else {
+        const el = area.querySelector('.game-countdown');
+        if (el) el.remove();
+        if (ssState) {
+          ssState.countdownActive = false;
+          ssState.lastTime = null; // reset the physics clock so the countdown's real-world time isn't counted as a fall
+          // An automatic lift-off right as control hands over — without
+          // it, a kid who hasn't tapped yet can hit the ground well under
+          // a second after "Go!", which isn't enough reaction time. Tuned
+          // (and test-verified) to give roughly a full second of untouched
+          // safety before the ground is reached.
+          ssState.velocity = SKY_FLAP_VELOCITY * 0.8;
+        }
+        const descEl = document.getElementById('game-desc');
+        if (descEl) descEl.textContent = "Tap to flap — clear each level's goal before your flaps run out!";
+      }
+    };
+    next();
   }
 
   function startStarSmash() {
@@ -3281,10 +3384,10 @@
     startBtn.textContent = 'Playing…';
     document.getElementById('game-score').textContent = '0';
     const descEl = document.getElementById('game-desc');
-    if (descEl) descEl.textContent = 'Tap to flap and weave through the gaps!';
+    if (descEl) descEl.textContent = 'Get ready…';
 
     const area = document.getElementById('game-area');
-    area.querySelectorAll('.sky-bird, .sky-pipe-top, .sky-pipe-bottom').forEach(el => el.remove());
+    area.querySelectorAll('.sky-bird, .sky-pipe-top, .sky-pipe-bottom, .game-countdown').forEach(el => el.remove());
     const rect = area.getBoundingClientRect();
     const areaHeight = rect.height || 260;
     const areaWidth = rect.width || 320;
@@ -3302,10 +3405,21 @@
       running: true, startedAt: Date.now(), score: 0,
       birdY: areaHeight / 2 - SKY_BIRD_SIZE / 2, velocity: 0,
       birdX, areaHeight, areaWidth,
-      pipes: [], sinceSpawn: 0, lastTime: null, rafId: null, birdEl
+      pipes: [], sinceSpawn: 0, lastTime: null, rafId: null, birdEl,
+      countdownActive: true, countdownTimeout: null, levelPulseTimeout: null,
+      level: 1, levelScore: 0, goal: skyLevelGoal(1), flapsLeft: skyLevelFlapBudget(1)
     };
     birdEl.style.top = ssState.birdY + 'px';
+    const flapsEl = document.getElementById('game-flaps');
+    if (flapsEl) flapsEl.textContent = String(ssState.flapsLeft);
+    const levelEl = document.getElementById('game-level');
+    if (levelEl) levelEl.textContent = '1';
+    const goalProgEl = document.getElementById('game-goal-progress');
+    if (goalProgEl) goalProgEl.textContent = '0';
+    const goalTotalEl = document.getElementById('game-goal-total');
+    if (goalTotalEl) goalTotalEl.textContent = String(ssState.goal);
     ssState.rafId = requestAnimationFrame(skyTick);
+    runSkyCountdown(area);
   }
 
   function skySpawnPipe(area) {
@@ -3335,13 +3449,47 @@
     playNote(880, ctx.currentTime, 0.12, 'sine', 0.16);
   }
 
+  function playSkyLevelUp() {
+    const ctx = getAudioCtx(); if (!ctx) return;
+    const t = ctx.currentTime;
+    playNote(660, t, 0.1, 'sine', 0.14);
+    playNote(880, t + 0.09, 0.1, 'sine', 0.16);
+    playNote(1174.66, t + 0.18, 0.16, 'sine', 0.18);
+  }
+
+  // Reached the goal before running out of flaps: level up rather than
+  // stop. Goal gets harder, and the new level's whole flap budget is
+  // added on top of whatever's left — never a reset — so banking extra
+  // flaps in one level pays off in the next.
+  function skyLevelUp() {
+    ssState.level++;
+    ssState.levelScore = 0;
+    ssState.goal = skyLevelGoal(ssState.level);
+    ssState.flapsLeft += skyLevelFlapBudget(ssState.level);
+    const levelEl = document.getElementById('game-level');
+    if (levelEl) levelEl.textContent = String(ssState.level);
+    const flapsEl = document.getElementById('game-flaps');
+    if (flapsEl) flapsEl.textContent = String(ssState.flapsLeft);
+    const goalProgEl = document.getElementById('game-goal-progress');
+    if (goalProgEl) goalProgEl.textContent = '0';
+    const goalTotalEl = document.getElementById('game-goal-total');
+    if (goalTotalEl) goalTotalEl.textContent = String(ssState.goal);
+    const badgeEl = document.getElementById('game-level-badge');
+    if (badgeEl) {
+      badgeEl.classList.add('pulse');
+      ssState.levelPulseTimeout = setTimeout(() => { badgeEl.classList.remove('pulse'); }, 520);
+    }
+    if (navigator.vibrate) navigator.vibrate([10, 40, 10, 40, 20]);
+    playSkyLevelUp();
+  }
+
   function skyTick(now) {
     if (!ssState || !ssState.running) return;
     if (ssState.lastTime == null) ssState.lastTime = now;
     const dt = Math.min(0.05, (now - ssState.lastTime) / 1000);
     ssState.lastTime = now;
 
-    if ((Date.now() - ssState.startedAt) / 1000 >= SKY_MAX_ROUND_SECONDS) { endStarSmash(); return; }
+    if (ssState.countdownActive) { ssState.rafId = requestAnimationFrame(skyTick); return; }
 
     ssState.velocity = Math.min(SKY_MAX_FALL_SPEED, ssState.velocity + SKY_GRAVITY * dt);
     ssState.birdY += ssState.velocity * dt;
@@ -3370,9 +3518,16 @@
       if (!pipe.passed && pipe.x + SKY_PIPE_WIDTH < ssState.birdX) {
         pipe.passed = true;
         ssState.score++;
+        ssState.levelScore++;
         const scoreEl = document.getElementById('game-score');
         if (scoreEl) scoreEl.textContent = String(ssState.score);
         playSkyPoint();
+        if (ssState.levelScore >= ssState.goal) {
+          skyLevelUp();
+        } else {
+          const goalProgEl = document.getElementById('game-goal-progress');
+          if (goalProgEl) goalProgEl.textContent = String(ssState.levelScore);
+        }
       }
 
       const horizontalOverlap = pipe.x < ssState.birdX + SKY_BIRD_SIZE && pipe.x + SKY_PIPE_WIDTH > ssState.birdX;
@@ -3393,12 +3548,13 @@
 
   async function endStarSmash() {
     const finalScore = ssState ? ssState.score : 0;
+    const finalLevel = ssState ? ssState.level : 1;
     const startedAt = ssState ? ssState.startedAt : Date.now();
     stopAllGames();
     const startBtn = document.getElementById('game-start-btn');
     if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
     const descEl = document.getElementById('game-desc');
-    if (descEl) descEl.textContent = `🏁 Nice flying! ${finalScore} gap${finalScore === 1 ? '' : 's'} cleared.`;
+    if (descEl) descEl.textContent = `🏁 Nice flying! Level ${finalLevel}, ${finalScore} gap${finalScore === 1 ? '' : 's'} cleared.`;
     if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
     await finishGameRound(finalScore, startedAt, '🐦 Sky Hop', 'starSmash');
   }
