@@ -3873,19 +3873,28 @@
     return 3;
   }
 
-  // Picks a fresh set of active bubble types and a new target from
-  // within it (different from the last target where possible), and
-  // pulses the on-screen callout so a rotation is noticeable even
-  // mid-swarm rather than a silent text swap a kid could easily miss.
+  // Picks a new target and pulses the on-screen callout so a rotation is
+  // noticeable even mid-swarm rather than a silent text swap a kid could
+  // easily miss. The active emoji set only gets reshuffled when the
+  // difficulty tier actually changes (score crosses 6 or 14) — rotating
+  // it on every single target change meant a new target could belong to
+  // a type with zero bubbles anywhere on screen, and since only a
+  // *correct* pop ever spawns a replacement, that was an unwinnable
+  // dead end (Tim caught this: "Find Diamonds... there are none!").
+  // ensureTargetOnScreen() below is a second, independent guarantee that
+  // can't be undermined the same way even if this logic changes later.
   function bubbleRotateTarget() {
     if (!ppState) return;
     const n = bubbleActiveTypeCount(ppState.score);
-    const pool = [...GAME_EMOJIS];
-    const activeEmojis = [];
-    while (activeEmojis.length < n && pool.length) {
-      activeEmojis.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    if (!ppState.activeEmojis || ppState.activeEmojis.length !== n) {
+      const pool = [...GAME_EMOJIS];
+      const activeEmojis = [];
+      while (activeEmojis.length < n && pool.length) {
+        activeEmojis.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      }
+      ppState.activeEmojis = activeEmojis;
     }
-    ppState.activeEmojis = activeEmojis;
+    const activeEmojis = ppState.activeEmojis;
     let next = activeEmojis[Math.floor(Math.random() * activeEmojis.length)];
     if (activeEmojis.length > 1 && next === ppState.targetEmoji) {
       next = activeEmojis[(activeEmojis.indexOf(next) + 1) % activeEmojis.length];
@@ -3900,6 +3909,29 @@
       void chip.offsetWidth; // force reflow so the animation can restart
       chip.classList.add('pulse');
     }
+    ensureTargetOnScreen();
+  }
+
+  // Guarantees the round is always winnable: if nothing currently on
+  // screen matches the new target, relabel one existing bubble to the
+  // target type instead of leaving a kid staring at a target that can
+  // never appear. Cheaper and less jarring than despawning/respawning.
+  // Ignores bubbles already mid-pop-out (".popping") — they're about to
+  // vanish and can't actually be clicked, so relabeling one would just
+  // recreate the same dead end a beat later. If there's truly nothing
+  // valid on screen yet (only happens at round start, before any bubbles
+  // exist), it's a no-op — startPowerPop() calls this again right after
+  // spawning the opening batch, once there's something to relabel.
+  function ensureTargetOnScreen() {
+    if (!ppState) return;
+    const area = document.getElementById('game-area');
+    if (!area) return;
+    const bubbles = Array.from(area.querySelectorAll('.game-bubble')).filter(el => !el.classList.contains('popping'));
+    const alreadyMatches = bubbles.some(el => el.dataset.emoji === ppState.targetEmoji);
+    if (alreadyMatches || !bubbles.length) return;
+    const pick = bubbles[Math.floor(Math.random() * bubbles.length)];
+    pick.dataset.emoji = ppState.targetEmoji;
+    pick.textContent = ppState.targetEmoji;
   }
 
   function openPowerPopModal() {
@@ -3950,6 +3982,7 @@
     bubbleRotateTarget();
     const cap = bubbleCapNow(ppState.score);
     for (let i = 0; i < cap; i++) spawnBubble(area);
+    ensureTargetOnScreen(); // the round just started, so this is what actually guarantees the opening target is obtainable
 
     ppState.timerInterval = setInterval(() => {
       if (!ppState) return;
@@ -4038,7 +4071,16 @@
       setTimeout(removeDom, 140);
 
       ppState.correctSinceRotate++;
-      if (ppState.correctSinceRotate >= bubbleRotateEvery(ppState.score)) bubbleRotateTarget();
+      if (ppState.correctSinceRotate >= bubbleRotateEvery(ppState.score)) {
+        bubbleRotateTarget(); // ends with ensureTargetOnScreen() itself
+      } else {
+        // Target didn't change, but the bubble we just popped may have
+        // been the last one on screen matching it — without this, the
+        // round could sit with zero matches until a random respawn
+        // happened to land on the right type (the flaky failure
+        // test-bubble3 caught during genuine sequential play).
+        ensureTargetOnScreen();
+      }
 
       const cap = bubbleCapNow(ppState.score);
       if (ppState.bubbleCount < cap) setTimeout(() => spawnBubble(area), 150 + Math.random() * 250);
