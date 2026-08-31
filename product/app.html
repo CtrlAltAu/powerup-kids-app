@@ -408,19 +408,26 @@
     background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 45%, #0c1a3d 100%);
     border-color: #60a5fa; border-style: solid;
   }
+  /* pointer-events: none on every visual element in the frame — taps are
+     handled by #game-area itself (see openStarSmashModal's pointerdown
+     listener), so it doesn't matter whether a tap lands on the bird, a
+     pipe, the ground, or empty background, it always registers. */
   .sky-ground {
     position: absolute; left: 0; right: 0; bottom: 0; height: 14px;
     background: linear-gradient(180deg, #92400e, #422006); border-top: 2px solid #b45309;
+    pointer-events: none;
   }
   .sky-bird {
     position: absolute; width: 34px; height: 34px; display: flex; align-items: center;
     justify-content: center; font-size: 24px; z-index: 3;
     filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45)); transition: transform 0.1s linear;
+    pointer-events: none;
   }
   .sky-pipe-top, .sky-pipe-bottom {
     position: absolute; box-sizing: border-box;
     background: linear-gradient(180deg, #fda4af, #f43f5e 55%, #be123c);
     border: 2px solid #fecdd3;
+    pointer-events: none;
   }
   .sky-pipe-top { top: 0; border-radius: 0 0 10px 10px; }
   .sky-pipe-bottom { bottom: 14px; border-radius: 10px 10px 0 0; }
@@ -2860,7 +2867,7 @@
       const patternRanked = [...entries].sort((a, b) => b.bestPattern - a.bestPattern);
       const smashRanked = [...entries].sort((a, b) => b.bestStarSmash - a.bestStarSmash);
       bodyHtml = `
-        <label class="field-label">🫧 Bubble Burst — most pops in 60s</label>
+        <label class="field-label">🔵 Bubble Burst — most pops in 60s</label>
         ${renderLeaderboardRows(powerPopRanked, 'bestPowerPop', 'pops', 'name')}
         <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
         ${renderLeaderboardRows(patternRanked, 'bestPattern', 'rounds', 'name')}
@@ -2888,7 +2895,7 @@
         <p style="font-size:12px; color:#94a3b8; margin-top:-4px;">Kids worldwide, shown only by nickname — never real names.</p>
         <label class="field-label">⭐ Top Levels</label>
         ${renderLeaderboardRows(levelEntries, 'level', '', 'nickname')}
-        <label class="field-label" style="margin-top:6px;">🫧 Bubble Burst — most pops in 60s</label>
+        <label class="field-label" style="margin-top:6px;">🔵 Bubble Burst — most pops in 60s</label>
         ${renderLeaderboardRows(popEntries, 'bestPowerPop', 'pops', 'nickname')}
         <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
         ${renderLeaderboardRows(patternEntries, 'bestPattern', 'rounds', 'nickname')}
@@ -2947,7 +2954,7 @@
           <h2>🎮 Game Time!</h2>
           ${elig.remainingMinutes != null ? `<p>${Math.round(elig.remainingMinutes)} minute${Math.round(elig.remainingMinutes) === 1 ? '' : 's'} left today.</p>` : ''}
           <div style="display:flex; flex-direction:column; gap:10px; width:100%;">
-            <button class="ghost-btn" id="pick-powerpop-btn" style="font-size:15px; padding:14px;">🫧 Bubble Burst — pop one, watch it multiply</button>
+            <button class="ghost-btn" id="pick-powerpop-btn" style="font-size:15px; padding:14px;">🔵 Bubble Burst — pop one, watch it multiply</button>
             <button class="ghost-btn" id="pick-pattern-btn" style="font-size:15px; padding:14px;">🧠 Pattern Match — repeat the sequence</button>
             ${secretButtonHtml}
           </div>
@@ -2999,11 +3006,11 @@
     root.innerHTML = `
       <div class="modal-overlay centered" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
-          <h2>🫧 Bubble Burst</h2>
+          <h2>🔵 Bubble Burst</h2>
           <p id="game-desc">Pop a bubble and it splits into more — the swarm grows fast! 60 seconds, go!</p>
           <div class="game-hud" style="width:100%;">
             <span>⏱️ <span id="game-timer">${POWER_POP_SECONDS}</span>s</span>
-            <span class="game-score">🫧 <span id="game-score">0</span></span>
+            <span class="game-score">🔵 <span id="game-score">0</span></span>
           </div>
           <div class="game-area" id="game-area"></div>
           <button class="primary-btn" id="game-start-btn" style="width:100%;">Start</button>
@@ -3060,7 +3067,11 @@
     let x, y;
     if (atX != null && atY != null) {
       const angle = Math.random() * Math.PI * 2;
-      const dist = 18 + Math.random() * 42;
+      // Scaled to the bubble's own size so freshly-split bubbles land
+      // clearly apart from each other instead of overlapping — landing on
+      // top of a neighbor is what made a tap meant for one bubble
+      // accidentally pop a different one right next to it.
+      const dist = size * 0.95 + Math.random() * size * 1.5;
       x = atX + Math.cos(angle) * dist - size / 2;
       y = atY + Math.sin(angle) * dist - size / 2;
     } else {
@@ -3081,9 +3092,9 @@
     // Randomize each bubble's float so the swarm feels alive rather than
     // synced — a negative delay starts each one mid-cycle instead of all
     // bobbing in lockstep.
-    bubble.style.setProperty('--fx', (4 + Math.random() * 5).toFixed(1) + 'px');
-    bubble.style.setProperty('--fy', (5 + Math.random() * 6).toFixed(1) + 'px');
-    bubble.style.setProperty('--fdur', (2.6 + Math.random() * 1.6).toFixed(2) + 's');
+    bubble.style.setProperty('--fx', (16 + Math.random() * 14).toFixed(1) + 'px');
+    bubble.style.setProperty('--fy', (18 + Math.random() * 16).toFixed(1) + 'px');
+    bubble.style.setProperty('--fdur', (3.0 + Math.random() * 1.8).toFixed(2) + 's');
     bubble.style.setProperty('--fdelay', (-Math.random() * 3).toFixed(2) + 's');
     ppState.bubbleCount++;
     let popped = false;
@@ -3121,7 +3132,7 @@
     if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
     const descEl = document.getElementById('game-desc');
     if (descEl) descEl.textContent = `🏁 Final Score: ${finalScore} bubble${finalScore === 1 ? '' : 's'} popped!`;
-    await finishGameRound(finalScore, startedAt, '🫧 Bubble Burst', 'powerPop');
+    await finishGameRound(finalScore, startedAt, '🔵 Bubble Burst', 'powerPop');
   }
 
   // --- Pattern Match: Simon-says style memory game. The mechanic tested
@@ -3285,6 +3296,12 @@
   const SKY_PIPE_SPEED = 110;       // px/s
   const SKY_PIPE_INTERVAL = 1500;   // ms between obstacles
   const SKY_GROUND_HEIGHT = 14;
+  // The bird's emoji glyph doesn't fill its whole 34x34 box — there's
+  // real whitespace around it — so colliding on the full box made the
+  // bird look like it hit a wall or pipe well before it visually touched
+  // one. This trims the same margin off all four sides for collision
+  // purposes only; the bird still renders at full size.
+  const SKY_BIRD_HITBOX_INSET = 7;
   // No more time cap — the round is governed by a flap budget instead
   // (see skyLevelFlapBudget), so a skilled kid can keep going as long as
   // they still have flaps and haven't crashed.
@@ -3323,7 +3340,14 @@
     document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') finishAndClose(); });
     document.getElementById('close-game-btn').addEventListener('click', finishAndClose);
     document.getElementById('game-start-btn').addEventListener('click', startStarSmash);
-    document.getElementById('game-area').addEventListener('click', skyFlap);
+    // pointerdown (not click) so a tap anywhere in the frame registers
+    // instantly, on mouse and touch alike — no 300ms click delay, and no
+    // dependency on which specific element (bird, pipe, ground, empty
+    // background) happens to be under the finger.
+    document.getElementById('game-area').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      skyFlap();
+    });
   }
 
   function skyFlap() {
@@ -3493,8 +3517,11 @@
 
     ssState.velocity = Math.min(SKY_MAX_FALL_SPEED, ssState.velocity + SKY_GRAVITY * dt);
     ssState.birdY += ssState.velocity * dt;
-    const maxY = ssState.areaHeight - SKY_GROUND_HEIGHT - SKY_BIRD_SIZE;
-    if (ssState.birdY <= 0) { ssState.birdY = 0; ssState.velocity = 0; } // ceiling: a safe bump, not a crash
+    // maxY/minY are expressed in terms of the inset hitbox, not the full
+    // visual box — see SKY_BIRD_HITBOX_INSET.
+    const maxY = ssState.areaHeight - SKY_GROUND_HEIGHT - SKY_BIRD_SIZE + SKY_BIRD_HITBOX_INSET;
+    const minY = -SKY_BIRD_HITBOX_INSET;
+    if (ssState.birdY <= minY) { ssState.birdY = minY; ssState.velocity = 0; } // ceiling: a safe bump, not a crash
     if (ssState.birdY >= maxY) { ssState.birdY = maxY; endStarSmash(); return; } // ground: that's a crash
     if (ssState.birdEl) {
       ssState.birdEl.style.top = ssState.birdY + 'px';
@@ -3530,10 +3557,16 @@
         }
       }
 
-      const horizontalOverlap = pipe.x < ssState.birdX + SKY_BIRD_SIZE && pipe.x + SKY_PIPE_WIDTH > ssState.birdX;
+      // Same inset hitbox applied horizontally, so a pipe edge has to
+      // actually reach the bird's visible pixels, not its full box.
+      const hitLeft = ssState.birdX + SKY_BIRD_HITBOX_INSET;
+      const hitRight = ssState.birdX + SKY_BIRD_SIZE - SKY_BIRD_HITBOX_INSET;
+      const hitTop = ssState.birdY + SKY_BIRD_HITBOX_INSET;
+      const hitBottom = ssState.birdY + SKY_BIRD_SIZE - SKY_BIRD_HITBOX_INSET;
+      const horizontalOverlap = pipe.x < hitRight && pipe.x + SKY_PIPE_WIDTH > hitLeft;
       if (horizontalOverlap) {
-        const hitsTop = ssState.birdY < pipe.gapTop;
-        const hitsBottom = ssState.birdY + SKY_BIRD_SIZE > pipe.gapTop + SKY_PIPE_GAP;
+        const hitsTop = hitTop < pipe.gapTop;
+        const hitsBottom = hitBottom > pipe.gapTop + SKY_PIPE_GAP;
         if (hitsTop || hitsBottom) { endStarSmash(); return; }
       }
 
