@@ -515,6 +515,12 @@
     transition: scale 0.14s ease, opacity 0.14s ease;
   }
   .game-bubble.popping { animation: none; scale: 1.55; opacity: 0; }
+  /* Wrong-guess feedback: a quick, non-punishing wobble in place — the
+     bubble stays put (no penalty, nothing lost), it just says "not this
+     one" so a kid can look again rather than the app rejecting them. */
+  .game-bubble.wrong-tap {
+    animation: bubbleIn 0.18s ease, bubbleFloat var(--fdur, 3.4s) ease-in-out var(--fdelay, 0s) infinite, bubbleWrong 0.32s ease;
+  }
   @keyframes bubbleIn { from { scale: 0.3; opacity: 0; } to { scale: 1; opacity: 1; } }
   @keyframes bubbleFloat {
     0%   { translate: 0 0; }
@@ -522,6 +528,27 @@
     50%  { translate: calc(-1 * var(--fx, 5px)) var(--fy, 7px); }
     75%  { translate: calc(var(--fx, 5px) * 0.6) calc(var(--fy, 7px) * 0.5); }
     100% { translate: 0 0; }
+  }
+  @keyframes bubbleWrong {
+    0%, 100% { rotate: 0deg; }
+    25% { rotate: -6deg; }
+    50% { rotate: 6deg; }
+    75% { rotate: -4deg; }
+  }
+  /* Target callout — the "pop up" that tells a kid which bubble type to
+     hunt for. Pulses each time it changes so a rotation is noticeable
+     even mid-swarm, not just a silent text swap. */
+  .game-target-card {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: linear-gradient(135deg, #312e81, #1e3a5f); border: 2px solid #6366f1;
+    border-radius: 12px; padding: 8px 14px; font-size: 13.5px; font-weight: 800; color: #e0e7ff; width: 100%; box-sizing: border-box;
+  }
+  .game-target-card .target-emoji { font-size: 26px; display: inline-block; }
+  .game-target-card.pulse .target-emoji { animation: targetPop 0.4s ease; }
+  @keyframes targetPop {
+    0% { transform: scale(0.3) rotate(-20deg); }
+    55% { transform: scale(1.3) rotate(10deg); }
+    100% { transform: scale(1) rotate(0deg); }
   }
   .game-hud { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 800; color: #cbd5e1; }
   .game-score { color: #facc15; font-size: 16px; }
@@ -3697,7 +3724,7 @@
       const patternRanked = [...entries].sort((a, b) => b.bestPattern - a.bestPattern);
       const smashRanked = [...entries].sort((a, b) => b.bestStarSmash - a.bestStarSmash);
       bodyHtml = `
-        <label class="field-label">🔵 Bubble Burst — most pops in 60s</label>
+        <label class="field-label">🔵 Bubble Burst — most matched in 60s</label>
         ${renderLeaderboardRows(powerPopRanked, 'bestPowerPop', 'pops', 'name')}
         <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
         ${renderLeaderboardRows(patternRanked, 'bestPattern', 'rounds', 'name')}
@@ -3725,7 +3752,7 @@
         <p style="font-size:12px; color:#94a3b8; margin-top:-4px;">Kids worldwide, shown only by nickname — never real names.</p>
         <label class="field-label">⭐ Top Levels</label>
         ${renderLeaderboardRows(levelEntries, 'level', '', 'nickname')}
-        <label class="field-label" style="margin-top:6px;">🔵 Bubble Burst — most pops in 60s</label>
+        <label class="field-label" style="margin-top:6px;">🔵 Bubble Burst — most matched in 60s</label>
         ${renderLeaderboardRows(popEntries, 'bestPowerPop', 'pops', 'nickname')}
         <label class="field-label" style="margin-top:6px;">🧠 Pattern Match — longest streak</label>
         ${renderLeaderboardRows(patternEntries, 'bestPattern', 'rounds', 'nickname')}
@@ -3784,7 +3811,7 @@
           <h2>🎮 Game Time!</h2>
           ${elig.remainingMinutes != null ? `<p>${Math.round(elig.remainingMinutes)} minute${Math.round(elig.remainingMinutes) === 1 ? '' : 's'} left today.</p>` : ''}
           <div style="display:flex; flex-direction:column; gap:10px; width:100%;">
-            <button class="ghost-btn" id="pick-powerpop-btn" style="font-size:15px; padding:14px;">🔵 Bubble Burst — pop one, watch it multiply</button>
+            <button class="ghost-btn" id="pick-powerpop-btn" style="font-size:15px; padding:14px;">🔵 Bubble Burst — pop only the matching bubble</button>
             <button class="ghost-btn" id="pick-pattern-btn" style="font-size:15px; padding:14px;">🧠 Pattern Match — repeat the sequence</button>
             ${secretButtonHtml}
           </div>
@@ -3809,26 +3836,70 @@
   // shared by both the family and worldwide leaderboards.
   const GAME_FIELDS = { powerPop: 'bestPowerPop', pattern: 'bestPattern', starSmash: 'bestStarSmash' };
 
-  // --- Bubble Burst (was Power Pop — same leaderboard field/key, new
-  // mechanic): tap a bubble and it splits into more nearby, so what
-  // starts as one lone bubble turns into a genuinely challenging swarm.
-  // Bubbles no longer vanish on their own — the challenge comes from
-  // managing the growing crowd (capped so it stays playable, not
-  // infinite) plus bubbles shrinking a little as the round goes on. ---
+  // --- Bubble Burst (redesigned 31 Aug 2026 — was pure reflex, "tap
+  // anything as fast as you can"; Tim's feedback was it needed real
+  // dexterity or thinking, not just speed). New mechanic: several bubble
+  // *types* (emoji) are on screen at once, but only one — the target
+  // shown in the callout above the swarm — actually scores when tapped.
+  // Tapping the wrong type does nothing (no penalty, bubble just stays
+  // put with a little "not this one" wobble) so mashing the screen stops
+  // working and a kid has to actually look before tapping. The target
+  // rotates as the round goes, and both how many types are in play and
+  // how often the target changes ramp up with score — same "starts calm,
+  // gets harder" spirit as the old version, just driven by accuracy
+  // instead of raw speed. Same leaderboard field/key (bestPowerPop) as
+  // both prior versions, so existing scores/history carry over. ---
   let ppState = null;
   const GAME_EMOJIS = ['⭐', '⚡', '🔥', '💎', '🎯', '🎈', '🍬', '✨'];
   const POWER_POP_SECONDS = 60;
-  // Lowered from 22 — Tim's feedback was the screen filled too fast and
-  // became clutter. A smaller cap keeps the swarm readable at its busiest.
-  const BUBBLE_MAX_ON_SCREEN = 12;
 
-  // Spawn count ramps instead of always multiplying by 2 — the first few
-  // pops just replace 1-for-1 so the round starts calm, then eases into
-  // the real "splits into more" challenge as the score climbs.
-  function bubbleSpawnPerPop() {
-    if (!ppState) return 1;
-    if (ppState.score < 5) return 1;
-    return 2;
+  // How many distinct bubble types are in play, how many on screen at
+  // once, and how many correct pops before the target rotates — all
+  // three ramp together as the score climbs, so the round eases a kid in
+  // (2 types, generous target window) before asking for real scanning.
+  function bubbleActiveTypeCount(score) {
+    if (score < 6) return 2;
+    if (score < 14) return 3;
+    return 4;
+  }
+  function bubbleCapNow(score) {
+    if (score < 6) return 6;
+    if (score < 14) return 8;
+    return 9;
+  }
+  function bubbleRotateEvery(score) {
+    if (score < 6) return 5;
+    if (score < 14) return 4;
+    return 3;
+  }
+
+  // Picks a fresh set of active bubble types and a new target from
+  // within it (different from the last target where possible), and
+  // pulses the on-screen callout so a rotation is noticeable even
+  // mid-swarm rather than a silent text swap a kid could easily miss.
+  function bubbleRotateTarget() {
+    if (!ppState) return;
+    const n = bubbleActiveTypeCount(ppState.score);
+    const pool = [...GAME_EMOJIS];
+    const activeEmojis = [];
+    while (activeEmojis.length < n && pool.length) {
+      activeEmojis.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    }
+    ppState.activeEmojis = activeEmojis;
+    let next = activeEmojis[Math.floor(Math.random() * activeEmojis.length)];
+    if (activeEmojis.length > 1 && next === ppState.targetEmoji) {
+      next = activeEmojis[(activeEmojis.indexOf(next) + 1) % activeEmojis.length];
+    }
+    ppState.targetEmoji = next;
+    ppState.correctSinceRotate = 0;
+    const emojiEl = document.getElementById('game-target-emoji');
+    if (emojiEl) emojiEl.textContent = next;
+    const chip = document.getElementById('game-target-card');
+    if (chip) {
+      chip.classList.remove('pulse');
+      void chip.offsetWidth; // force reflow so the animation can restart
+      chip.classList.add('pulse');
+    }
   }
 
   function openPowerPopModal() {
@@ -3837,7 +3908,10 @@
       <div class="modal-overlay centered" id="modal-overlay">
         <div class="modal-sheet" style="align-items:center; text-align:center;">
           <h2>🔵 Bubble Burst</h2>
-          <p id="game-desc">Pop a bubble and it splits into more — the swarm grows fast! 60 seconds, go!</p>
+          <p id="game-desc">A few bubble types will be on screen — only pop the one shown as the target below. It changes as you go, so keep checking! 60 seconds, go!</p>
+          <div class="game-target-card" id="game-target-card">
+            <span>Find:</span> <span class="target-emoji" id="game-target-emoji">❓</span>
+          </div>
           <div class="game-hud" style="width:100%;">
             <span>⏱️ <span id="game-timer">${POWER_POP_SECONDS}</span>s</span>
             <span class="game-score">🔵 <span id="game-score">0</span></span>
@@ -3864,14 +3938,19 @@
     startBtn.textContent = 'Playing…';
     const area = document.getElementById('game-area');
     area.innerHTML = '';
-    ppState = { score: 0, timeLeft: POWER_POP_SECONDS, running: true, startedAt: Date.now(), bubbleCount: 0 };
+    ppState = {
+      score: 0, combo: 0, timeLeft: POWER_POP_SECONDS, running: true, startedAt: Date.now(),
+      bubbleCount: 0, activeEmojis: [], targetEmoji: null, correctSinceRotate: 0
+    };
     document.getElementById('game-score').textContent = '0';
     document.getElementById('game-timer').textContent = String(POWER_POP_SECONDS);
     const descEl = document.getElementById('game-desc');
-    if (descEl) descEl.textContent = 'Pop a bubble and it splits into more — the swarm grows fast! 60 seconds, go!';
+    if (descEl) descEl.textContent = 'Only pop the bubble that matches the target above — the wrong one just stays put, no harm done. Take a beat and look!';
 
-    const rect = area.getBoundingClientRect();
-    spawnBubble(area, rect.width / 2, rect.height / 2);
+    bubbleRotateTarget();
+    const cap = bubbleCapNow(ppState.score);
+    for (let i = 0; i < cap; i++) spawnBubble(area);
+
     ppState.timerInterval = setInterval(() => {
       if (!ppState) return;
       ppState.timeLeft--;
@@ -3881,35 +3960,35 @@
     }, 1000);
   }
 
-  // Bubbles get a little smaller as the round goes on, on top of the
-  // swarm growing — two different kinds of pressure instead of one, same
-  // "keeps getting harder, not a plateau" spirit as the old timer-ramp.
+  // Bubbles get a little smaller as the round goes on — a second, gentler
+  // kind of pressure on top of the type-count/rotation ramp above, same
+  // "keeps getting harder, not a plateau" spirit as before.
   function bubbleSizeNow() {
     if (!ppState) return 46;
     const elapsedFrac = 1 - (ppState.timeLeft / POWER_POP_SECONDS);
     return Math.max(30, 46 - elapsedFrac * 16);
   }
 
-  function spawnBubble(area, atX, atY) {
+  function spawnBubble(area) {
     if (!ppState || !ppState.running || !area) return;
     const rect = area.getBoundingClientRect();
     const size = bubbleSizeNow();
-    let x, y;
-    if (atX != null && atY != null) {
-      const angle = Math.random() * Math.PI * 2;
-      // Scaled to the bubble's own size so freshly-split bubbles land
-      // clearly apart from each other instead of overlapping — landing on
-      // top of a neighbor is what made a tap meant for one bubble
-      // accidentally pop a different one right next to it.
-      const dist = size * 0.95 + Math.random() * size * 1.5;
-      x = atX + Math.cos(angle) * dist - size / 2;
-      y = atY + Math.sin(angle) * dist - size / 2;
-    } else {
-      x = Math.random() * Math.max(0, rect.width - size);
-      y = Math.random() * Math.max(0, rect.height - size);
+    const maxX = Math.max(0, rect.width - size);
+    const maxY = Math.max(0, rect.height - size);
+    // Try a few random spots and keep the one furthest from existing
+    // bubbles — landing right on top of a neighbor is what made a tap
+    // meant for one bubble accidentally catch a different one instead.
+    const existing = Array.from(area.querySelectorAll('.game-bubble')).map(el => ({
+      x: parseFloat(el.style.left) || 0, y: parseFloat(el.style.top) || 0
+    }));
+    let best = null, bestDist = -1;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const cx = Math.random() * maxX, cy = Math.random() * maxY;
+      const minDist = existing.reduce((m, e) => Math.min(m, Math.hypot(e.x - cx, e.y - cy)), Infinity);
+      if (minDist > bestDist) { bestDist = minDist; best = { x: cx, y: cy }; }
     }
-    x = Math.min(Math.max(0, x), Math.max(0, rect.width - size));
-    y = Math.min(Math.max(0, y), Math.max(0, rect.height - size));
+    const x = best ? best.x : Math.random() * maxX;
+    const y = best ? best.y : Math.random() * maxY;
 
     const bubble = document.createElement('button');
     bubble.className = 'game-bubble';
@@ -3918,7 +3997,10 @@
     bubble.style.left = x + 'px';
     bubble.style.top = y + 'px';
     bubble.style.fontSize = Math.round(size * 0.48) + 'px';
-    bubble.textContent = GAME_EMOJIS[Math.floor(Math.random() * GAME_EMOJIS.length)];
+    const pool = (ppState.activeEmojis && ppState.activeEmojis.length) ? ppState.activeEmojis : GAME_EMOJIS;
+    const emoji = pool[Math.floor(Math.random() * pool.length)];
+    bubble.textContent = emoji;
+    bubble.dataset.emoji = emoji;
     // Randomize each bubble's float so the swarm feels alive rather than
     // synced — a negative delay starts each one mid-cycle instead of all
     // bobbing in lockstep.
@@ -3931,23 +4013,35 @@
     const removeDom = () => { if (bubble.parentNode) bubble.parentNode.removeChild(bubble); };
     bubble.addEventListener('click', () => {
       if (popped || !ppState || !ppState.running) return;
+      if (bubble.dataset.emoji !== ppState.targetEmoji) {
+        // Wrong type: no score, but no penalty either — it just wobbles
+        // in place to say "not this one" and stays put to try again.
+        if (navigator.vibrate) navigator.vibrate(10);
+        bubble.classList.remove('wrong-tap');
+        void bubble.offsetWidth; // force reflow so the animation can restart on a repeat miss
+        bubble.classList.add('wrong-tap');
+        ppState.combo = 0;
+        return;
+      }
       popped = true;
-      ppState.score++;
+      ppState.combo++;
+      // A small bonus for a run of 5 correct in a row — breaking a streak
+      // never costs anything, it just resets the count toward the next one.
+      const bonus = (ppState.combo % 5 === 0) ? 1 : 0;
+      ppState.score += 1 + bonus;
       ppState.bubbleCount = Math.max(0, ppState.bubbleCount - 1);
       const scoreEl = document.getElementById('game-score');
       if (scoreEl) scoreEl.textContent = String(ppState.score);
-      if (navigator.vibrate) navigator.vibrate(20);
+      if (navigator.vibrate) navigator.vibrate(bonus ? [20, 30, 20] : 20);
       bubble.classList.add('popping');
       bubble.style.pointerEvents = 'none';
       setTimeout(removeDom, 140);
-      const cx = x + size / 2, cy = y + size / 2;
-      // Multiply, up to the on-screen cap — once capped, popping just
-      // clears space instead of adding more, so the swarm settles into a
-      // genuinely busy (not infinite) ceiling.
-      const room = BUBBLE_MAX_ON_SCREEN - ppState.bubbleCount;
-      const spawnCount = Math.max(0, Math.min(bubbleSpawnPerPop(), room));
-      for (let i = 0; i < spawnCount; i++) spawnBubble(area, cx, cy);
-      if (ppState.bubbleCount === 0 && spawnCount === 0) spawnBubble(area); // never let the swarm fully die out mid-round
+
+      ppState.correctSinceRotate++;
+      if (ppState.correctSinceRotate >= bubbleRotateEvery(ppState.score)) bubbleRotateTarget();
+
+      const cap = bubbleCapNow(ppState.score);
+      if (ppState.bubbleCount < cap) setTimeout(() => spawnBubble(area), 150 + Math.random() * 250);
     });
     area.appendChild(bubble);
   }
@@ -3961,7 +4055,7 @@
     const startBtn = document.getElementById('game-start-btn');
     if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Play Again'; }
     const descEl = document.getElementById('game-desc');
-    if (descEl) descEl.textContent = `🏁 Final Score: ${finalScore} bubble${finalScore === 1 ? '' : 's'} popped!`;
+    if (descEl) descEl.textContent = `🏁 Final Score: ${finalScore} matched!`;
     await finishGameRound(finalScore, startedAt, '🔵 Bubble Burst', 'powerPop');
   }
 
