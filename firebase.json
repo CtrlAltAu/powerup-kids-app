@@ -1,13 +1,24 @@
 {
-  "hosting": {
-    "public": "product",
-    "ignore": [
-      "**/*.md",
-      "**/.*",
-      "**/firebase-stub.mjs",
-      "**/app.test.html",
-      "**/test-batch*.mjs",
-      "**/app.html"
-    ]
-  }
+  "hosting": [
+    {
+      "target": "app",
+      "public": "product",
+      "ignore": [
+        "**/*.md",
+        "**/.*",
+        "**/firebase-stub.mjs",
+        "**/app.test.html",
+        "**/test-batch*.mjs",
+        "**/app.html"
+      ]
+    },
+    {
+      "target": "landing",
+      "public": "landing",
+      "ignore": [
+        "**/*.md",
+        "**/.*"
+      ]
+    }
+  ]
 }
