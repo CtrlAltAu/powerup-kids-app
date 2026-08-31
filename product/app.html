@@ -190,6 +190,16 @@
   .task-card.completed { background: #064e3b; border-color: #10b981; }
   .task-card.current-task { border-color: #f59e0b; animation: pulseGlow 1.6s ease-in-out infinite; }
   @keyframes pulseGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55);} 50% { box-shadow: 0 0 0 9px rgba(245,158,11,0);} }
+  /* Deliberately slower and softer than current-task's glow above — this is
+     a "someone could use a hand" signal, not an alert. */
+  .task-card.needs-help { border-color: #eab308; animation: gentlePulse 3s ease-in-out infinite; }
+  @keyframes gentlePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(234,179,8,0.32);} 50% { box-shadow: 0 0 0 7px rgba(234,179,8,0);} }
+  .help-flag { font-size: 10.5px; font-weight: 800; color: #fde68a; margin-top: 4px; }
+  .help-btn {
+    flex-shrink: 0; width: 34px; height: 34px; border-radius: 8px; border: 2px solid #475569;
+    background: #1e293b; color: #94a3b8; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .help-btn.active { background: #422006; border-color: #eab308; color: #fde68a; }
   .task-card.pop { animation: popCard 0.4s ease; }
   @keyframes popCard { 0%{transform:scale(1);} 35%{transform:scale(1.04);} 100%{transform:scale(1);} }
   .time-tag { font-size: 12px; font-weight: 800; color: #93c5fd; background: #0f172a; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
@@ -361,6 +371,59 @@
   .cal-tag { font-size: 10px; font-weight: 800; color: #134e4a; background: #5eead4; padding: 2px 6px; border-radius: 999px; margin-left: 4px; white-space: nowrap; }
   .cal-teaser-btn { background: #0f766e; color: #f0fdfa; }
   .cal-teaser-btn:active { background: #115e59; }
+
+  /* ---------- Parent Missions, inline on the main screen ---------- */
+  .parent-missions-inline {
+    background: #134e4a; border: 2px solid #14b8a6; border-radius: 14px; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .pm-inline-header { display: flex; align-items: center; justify-content: space-between; }
+  .pm-inline-title { font-size: 15px; font-weight: 900; color: #f0fdfa; }
+  .pm-inline-count { font-size: 11.5px; font-weight: 800; color: #134e4a; background: #5eead4; padding: 3px 9px; border-radius: 999px; }
+  .pm-inline-list { display: flex; flex-direction: column; gap: 6px; }
+  .parent-mission-row.compact { padding: 9px 10px; border-radius: 9px; gap: 9px; }
+  .parent-mission-row.compact .parent-mission-title { font-size: 13px; }
+  .pm-inline-actions { display: flex; gap: 8px; }
+  .pm-inline-actions .ghost-btn { flex: 1; background: #0f766e; color: #f0fdfa; }
+
+  /* ---------- Kids overview (collapsed summary bars) ---------- */
+  .kids-summary-list { display: flex; flex-direction: column; gap: 8px; }
+  .kid-summary-row {
+    display: flex; align-items: center; gap: 12px; background: #1e293b; border: 2px solid #334155;
+    border-radius: 12px; padding: 12px; cursor: pointer; text-align: left; width: 100%; font-family: inherit;
+  }
+  .kid-summary-row.needs-help { border-color: #eab308; animation: gentlePulse 3s ease-in-out infinite; }
+  .kid-summary-emoji { font-size: 24px; flex-shrink: 0; }
+  .kid-summary-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .kid-summary-name { font-size: 14px; font-weight: 800; color: #f8fafc; }
+  .kid-summary-help-badge { font-size: 11px; font-weight: 800; color: #422006; background: #fde68a; padding: 2px 7px; border-radius: 999px; }
+  .kid-summary-bar-bg { display: block; width: 100%; height: 7px; background: #0f172a; border-radius: 999px; overflow: hidden; }
+  .kid-summary-bar-fill { display: block; height: 100%; background: #10b981; border-radius: 999px; transition: width 0.3s ease; }
+  .kid-summary-frac { font-size: 12.5px; font-weight: 800; color: #94a3b8; flex-shrink: 0; }
+  .collapse-kids-btn {
+    display: block; width: 100%; background: none; border: none; color: #93c5fd; font-weight: 700;
+    font-size: 12.5px; padding: 4px 0 2px; cursor: pointer; text-align: center; font-family: inherit;
+  }
+
+  /* ---------- Daily recap ----------
+     Replaces a manual "reset for the day" click: a new date key already
+     starts fresh on its own, so instead the parent gets a short note about
+     yesterday plus one tip for today, once per day, until dismissed. */
+  .daily-recap-card {
+    background: #312e81; border: 2px solid #818cf8; border-radius: 14px; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .daily-recap-card.all-perfect { background: #422006; border-color: #eab308; }
+  .recap-title { font-size: 14.5px; font-weight: 900; color: #eef2ff; }
+  .recap-rows { display: flex; flex-direction: column; gap: 6px; }
+  .recap-row { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border-radius: 9px; padding: 8px 10px; }
+  .recap-emoji { font-size: 18px; flex-shrink: 0; }
+  .recap-name { font-size: 13px; font-weight: 800; color: #f1f5f9; flex: 1; }
+  .recap-frac { font-size: 12px; font-weight: 700; color: #c7d2fe; }
+  .recap-frac.perfect { color: #fde68a; font-weight: 800; }
+  .recap-tip { margin: 0; font-size: 12.5px; color: #e0e7ff; line-height: 1.45; }
+  .recap-dismiss-btn { align-self: flex-start; background: rgba(255,255,255,0.14); color: #eef2ff; padding: 8px 14px; font-size: 12.5px; }
+  .recap-dismiss-btn:active { background: rgba(255,255,255,0.22); }
 
   /* ---------- Missions Calendar (Premium) ---------- */
   .cal-nav { display: flex; align-items: center; justify-content: space-between; }
@@ -575,61 +638,83 @@
       </div>
     </div>
 
-    <div class="child-switcher" id="child-switcher"></div>
+    <!-- Once-a-day note: what got done yesterday, plus one tip for today.
+         No "reset" click needed — a new date key already starts fresh on
+         its own; this is purely a friendly heads-up, dismissed by the
+         parent and not shown again until the next new day. -->
+    <div class="daily-recap-card parent-only hidden" id="daily-recap-card"></div>
 
-    <div class="parent-banner hidden parent-only" id="parent-nudge-banner">
-      <span style="flex:1;" id="parent-nudge-text"></span>
-      <button id="parent-nudge-dismiss" title="Dismiss">✕</button>
-    </div>
+    <!-- Front and centre for a parent: their own list, always visible,
+         above whatever state the kids' section is in. Free for everyone.
+         See openParentMissionsGate for the full modal (Edit List/Calendar
+         still live there) — this is the same data, rendered inline. -->
+    <div class="parent-missions-inline parent-only hidden" id="parent-missions-inline"></div>
 
-    <div class="tier-banner free hidden parent-only" id="tier-banner-free">
-      <span>🔒 Free plan — basic missions only</span>
-      <button class="upgrade-chip" id="upgrade-btn-1">Upgrade</button>
-    </div>
-    <div class="tier-banner premium hidden parent-only" id="tier-banner-premium">
-      <span>⭐ Premium — full PowerUp experience unlocked</span>
-    </div>
+    <!-- Collapsed view: one compact bar per kid (progress + a gentle
+         "needs help" badge), so a parent isn't wading through a full
+         mission list just to see how the day's going. Tapping a bar
+         expands that kid into #kid-detail-block below. -->
+    <div class="kids-summary-list parent-only hidden" id="kids-summary-list"></div>
 
-    <div class="now-banner" id="now-banner">
-      <span>👉</span>
-      <span id="now-banner-text">Do this now: ...</span>
-    </div>
+    <div id="kid-detail-block">
+      <button type="button" class="collapse-kids-btn parent-only hidden" id="collapse-kids-btn">▲ Back to everyone's overview</button>
 
-    <!-- Feats a kid has tapped but a parent hasn't confirmed yet -->
-    <div class="card hidden parent-only" id="pending-feats-wrap" style="border-color:#f59e0b; margin-bottom:2px;"></div>
+      <div class="child-switcher" id="child-switcher"></div>
 
-    <!-- Bonus feats: shown for premium -->
-    <div class="bonus-section hidden" id="bonus-section">
-      <div class="bonus-title">
-        <span>🏆 Epic Feats (Bonus Power)</span>
-        <span class="bonus-count" id="feat-count">0 / 0</span>
+      <div class="parent-banner hidden parent-only" id="parent-nudge-banner">
+        <span style="flex:1;" id="parent-nudge-text"></span>
+        <button id="parent-nudge-dismiss" title="Dismiss">✕</button>
       </div>
-      <div class="bonus-grid" id="bonus-grid"></div>
-      <div class="bonus-progress-bg"><div class="bonus-progress-fill" id="feat-bar"></div></div>
-      <button class="ghost-btn parent-only" id="edit-feats-btn" style="margin-top:2px;">✏️ Edit Feats</button>
-    </div>
 
-    <!-- Locked feats panel for free tier -->
-    <div class="locked-panel hidden parent-only" id="feats-locked-panel">
-      <span class="lock-emoji">🔒</span>
-      <p><strong>Epic Feats</strong> and celebration effects are a Premium feature.</p>
-      <button class="upgrade-chip" id="upgrade-btn-2">Unlock Premium</button>
-    </div>
+      <div class="tier-banner free hidden parent-only" id="tier-banner-free">
+        <span>🔒 Free plan — basic missions only</span>
+        <button class="upgrade-chip" id="upgrade-btn-1">Upgrade</button>
+      </div>
+      <div class="tier-banner premium hidden parent-only" id="tier-banner-premium">
+        <span>⭐ Premium — full PowerUp experience unlocked</span>
+      </div>
 
-    <div class="progress-wrap">
-      <div class="progress-labels"><span>Daily Missions</span><span id="progress-text">0 / 0 Done</span></div>
-      <div class="progress-bar-bg"><div class="progress-fill" id="progress-bar"></div></div>
-    </div>
+      <div class="now-banner" id="now-banner">
+        <span>👉</span>
+        <span id="now-banner-text">Do this now: ...</span>
+      </div>
 
-    <div class="task-list" id="task-list"></div>
+      <!-- Feats a kid has tapped but a parent hasn't confirmed yet -->
+      <div class="card hidden parent-only" id="pending-feats-wrap" style="border-color:#f59e0b; margin-bottom:2px;"></div>
 
-    <!-- Just the two things a parent needs mid-day, right where the
-         mission list is. Everything else lives one tap away in the
-         grouped Parent Menu (opened from the gear icon) — see the
-         design audit's "parent menu" finding. -->
-    <div class="quick-actions parent-only">
-      <button class="ghost-btn" id="edit-tasks-btn">✏️ Edit Missions</button>
-      <button class="ghost-btn" id="reset-btn">🔄 Reset for New Day</button>
+      <!-- Bonus feats: shown for premium -->
+      <div class="bonus-section hidden" id="bonus-section">
+        <div class="bonus-title">
+          <span>🏆 Epic Feats (Bonus Power)</span>
+          <span class="bonus-count" id="feat-count">0 / 0</span>
+        </div>
+        <div class="bonus-grid" id="bonus-grid"></div>
+        <div class="bonus-progress-bg"><div class="bonus-progress-fill" id="feat-bar"></div></div>
+        <button class="ghost-btn parent-only" id="edit-feats-btn" style="margin-top:2px;">✏️ Edit Feats</button>
+      </div>
+
+      <!-- Locked feats panel for free tier -->
+      <div class="locked-panel hidden parent-only" id="feats-locked-panel">
+        <span class="lock-emoji">🔒</span>
+        <p><strong>Epic Feats</strong> and celebration effects are a Premium feature.</p>
+        <button class="upgrade-chip" id="upgrade-btn-2">Unlock Premium</button>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-labels"><span>Daily Missions</span><span id="progress-text">0 / 0 Done</span></div>
+        <div class="progress-bar-bg"><div class="progress-fill" id="progress-bar"></div></div>
+      </div>
+
+      <div class="task-list" id="task-list"></div>
+
+      <!-- Just the two things a parent needs mid-day, right where the
+           mission list is. Everything else lives one tap away in the
+           grouped Parent Menu (opened from the gear icon) — see the
+           design audit's "parent menu" finding. -->
+      <div class="quick-actions parent-only">
+        <button class="ghost-btn" id="edit-tasks-btn">✏️ Edit Missions</button>
+        <button class="ghost-btn" id="reset-btn" title="Missions already reset on their own each day — this is only for clearing today's progress early, if you ever need to.">🔄 Clear Today's Progress</button>
+      </div>
     </div>
   </div>
 
@@ -787,6 +872,12 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
+  function yesterdayKey() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
   // ---------------------------------------------------------------------
   // App state
   // ---------------------------------------------------------------------
@@ -801,6 +892,19 @@
   let childLogsRefCurrent = null;
   let unsubFamily = null;
   let unsubChildLogs = null;
+
+  // ---------------------------------------------------------------------
+  // Parent-view collapse: which single kid (if any) is currently expanded
+  // into the full mission-list view. null = everyone's collapsed into
+  // summary bars and the parent's own missions take the top of the
+  // screen. Deliberately session-local, not persisted — every fresh
+  // visit starts collapsed (see render()), matching "parent stuff front
+  // and centre" rather than remembering yesterday's expanded kid.
+  // ---------------------------------------------------------------------
+  let expandedChildId = null;
+  let allChildLogs = {};       // childId -> that kid's whole childLogs doc, kept live for every kid at once (read-only, for the summary bars)
+  let allChildUnsubs = {};     // childId -> unsubscribe fn
+  let helpFlagsSeen = {};      // childId -> Set of taskIds already notified about, so reopening the app doesn't re-notify a backlog
 
   const els = {
     authScreen: document.getElementById('auth-screen'),
@@ -941,6 +1045,11 @@
     currentUser = user;
     if (unsubFamily) { unsubFamily(); unsubFamily = null; }
     if (unsubChildLogs) { unsubChildLogs(); unsubChildLogs = null; }
+    Object.values(allChildUnsubs).forEach(fn => fn());
+    allChildUnsubs = {};
+    allChildLogs = {};
+    helpFlagsSeen = {};
+    expandedChildId = null;
 
     if (!user) {
       document.body.classList.remove('kid-mode');
@@ -985,6 +1094,7 @@
       };
       await setDoc(familyRef, familyData);
       isNewFamily = true;
+      expandedChildId = seedChild.id; // land straight on the new kid's setup, not a summary bar for a kid with nothing in it yet
     }
 
     subscribeToFamily();
@@ -1087,6 +1197,22 @@
     const child = activeChild();
     if (!child) return;
 
+    if (sessionRole === 'parent') {
+      renderDailyRecap();
+      renderParentMissionsInline();
+      syncAllChildLogsSubscriptions();
+      const showingOverview = expandedChildId === null;
+      document.getElementById('kids-summary-list').classList.toggle('hidden', !showingOverview);
+      document.getElementById('kid-detail-block').classList.toggle('hidden', showingOverview);
+      document.getElementById('collapse-kids-btn').classList.toggle('hidden', showingOverview);
+      renderKidsSummary();
+      if (!showingOverview && activeChildId !== expandedChildId) {
+        setActiveChild(expandedChildId, { persist: false });
+        return; // setActiveChild's onSnapshot will call render() again once loaded
+      }
+      if (showingOverview) return; // nothing below this point is visible while collapsed
+    }
+
     // A kid can equip a newly-unlocked icon themselves (see
     // openIconUnlockModal) — that's stored on childLogsData.equippedEmoji
     // since it's kid-writable, and takes priority here over the
@@ -1107,6 +1233,189 @@
     if (isPremium()) renderFeats();
     updateNowBanner();
     updateLevelChip();
+  }
+
+  // ---------------------------------------------------------------------
+  // Kids summary bars (parent, collapsed view) — a lightweight read-only
+  // subscription per kid, separate from the single "active child" detail
+  // subscription above, so a parent can see every kid's progress at once
+  // without switching between them. Also where a new "needs help" flag
+  // gets noticed and gently surfaced.
+  // ---------------------------------------------------------------------
+  function syncAllChildLogsSubscriptions() {
+    const wantIds = Object.keys((familyData && familyData.children) || {});
+    // Drop subscriptions for kids that no longer exist.
+    Object.keys(allChildUnsubs).forEach((id) => {
+      if (!wantIds.includes(id)) {
+        allChildUnsubs[id]();
+        delete allChildUnsubs[id];
+        delete allChildLogs[id];
+        delete helpFlagsSeen[id];
+      }
+    });
+    // Add subscriptions for any new kid.
+    wantIds.forEach((id) => {
+      if (allChildUnsubs[id]) return;
+      const ref = doc(db, 'families', familyRef.id, 'childLogs', id);
+      let firstSnapshot = true;
+      allChildUnsubs[id] = onSnapshot(ref, (snap) => {
+        allChildLogs[id] = snap.exists() ? snap.data() : { logs: {} };
+        noticeNewHelpFlags(id, firstSnapshot);
+        firstSnapshot = false;
+        renderKidsSummary();
+        renderDailyRecap();
+      });
+    });
+  }
+
+  // Diffs today's live helpRequested flags for one kid against what this
+  // session has already notified about, and gently surfaces anything new —
+  // an in-app toast plus a best-effort local notification (only reaches
+  // this browser/device if it's the one open; there's no cross-device push
+  // wired up yet, that would need a backend to relay to a different phone).
+  function noticeNewHelpFlags(childId, isFirstSnapshot) {
+    const log = (allChildLogs[childId] && allChildLogs[childId].logs && allChildLogs[childId].logs[todayKey()]) || { tasks: {}, helpRequested: {} };
+    const flaggedIds = Object.keys(log.helpRequested || {}).filter(id => log.helpRequested[id]);
+    if (!helpFlagsSeen[childId]) helpFlagsSeen[childId] = new Set();
+    const seen = helpFlagsSeen[childId];
+    if (isFirstSnapshot) {
+      flaggedIds.forEach(id => seen.add(id));
+      return;
+    }
+    const child = familyData.children[childId];
+    flaggedIds.forEach((taskId) => {
+      if (seen.has(taskId)) return;
+      seen.add(taskId);
+      const task = child && child.tasks.find(t => t.id === taskId);
+      const label = task ? task.title : 'a mission';
+      showNudgeToast(`🤚 ${child ? child.name : 'Your kid'} could use a hand with "${label}"`);
+    });
+    // Clean up flags that were resolved, so a re-request later notifies again.
+    [...seen].forEach((id) => { if (!flaggedIds.includes(id)) seen.delete(id); });
+  }
+
+  function renderKidsSummary() {
+    const wrap = document.getElementById('kids-summary-list');
+    if (!wrap || expandedChildId !== null) return;
+    const children = Object.values(familyData.children || {});
+    wrap.innerHTML = children.map((c) => {
+      const log = (allChildLogs[c.id] && allChildLogs[c.id].logs && allChildLogs[c.id].logs[todayKey()]) || { tasks: {}, helpRequested: {} };
+      const total = c.tasks.length;
+      const done = Object.keys(log.tasks || {}).filter(id => log.tasks[id]).length;
+      const helpCount = Object.keys(log.helpRequested || {}).filter(id => log.helpRequested[id]).length;
+      const pct = total ? Math.round((done / total) * 100) : 0;
+      const emoji = (allChildLogs[c.id] && allChildLogs[c.id].equippedEmoji) || c.emoji || '🧑';
+      return `
+        <button type="button" class="kid-summary-row ${helpCount ? 'needs-help' : ''}" data-child-id="${c.id}">
+          <span class="kid-summary-emoji">${emoji}</span>
+          <span class="kid-summary-main">
+            <span class="kid-summary-name">${escapeHtml(c.name)}${helpCount ? ` <span class="kid-summary-help-badge">🤚 ${helpCount}</span>` : ''}</span>
+            <span class="kid-summary-bar-bg"><span class="kid-summary-bar-fill" style="width:${pct}%;"></span></span>
+          </span>
+          <span class="kid-summary-frac">${done}/${total}</span>
+        </button>`;
+    }).join('');
+    wrap.querySelectorAll('.kid-summary-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        expandedChildId = row.dataset.childId;
+        render();
+      });
+    });
+  }
+
+  document.getElementById('collapse-kids-btn').addEventListener('click', () => {
+    expandedChildId = null;
+    render();
+  });
+
+  // ---------------------------------------------------------------------
+  // Daily recap — the "no manual reset needed" quality-of-life feature.
+  // A new date key already starts each kid's checklist fresh on its own
+  // (see todayKey()), so there was never really anything to reset — the
+  // old "Reset for New Day" button was just giving the parent something
+  // to click out of habit. This replaces that ritual with a short,
+  // once-a-day note about what happened yesterday plus one tip for today,
+  // with real recognition on a day where everything got done.
+  // familyData.recapSeenDate tracks the last date this was dismissed, so
+  // it shows once per new day and then gets out of the way.
+  // ---------------------------------------------------------------------
+  const RECAP_TIPS = {
+    perfect: [
+      "A specific compliment about one mission (\"I noticed you got dressed all by yourself\") tends to stick better than a general \"great job\".",
+      "Days like this are a great moment to let them pick tomorrow's first mission, or add one small bonus activity.",
+      "Worth mentioning the streak out loud today — kids often don't realize just how consistent they've been.",
+    ],
+    good: [
+      "Keeping today's routine at roughly the same time as yesterday is often what carries good days into great weeks.",
+      "A calm heads-up a few minutes before each mission can help close the gap on the ones that slipped.",
+      "Celebrating what did get done, before mentioning what didn't, usually keeps motivation higher for tomorrow.",
+    ],
+    rough: [
+      "Rough days happen — breaking tomorrow's toughest mission into 2-3 smaller visual steps often helps more than a bigger reward.",
+      "If the same mission keeps stalling, it might be worth moving it to a different time of day rather than pushing harder at the same one.",
+      "A short, low-pressure reset chat this morning (not about yesterday) tends to land better than reviewing what went wrong.",
+    ],
+  };
+
+  function pickRecapTip(bucket, seedKey) {
+    const pool = RECAP_TIPS[bucket];
+    // Deterministic per family+day so the tip doesn't change on every
+    // re-render, but still varies from one day to the next.
+    let hash = 0;
+    for (let i = 0; i < seedKey.length; i++) hash = (hash * 31 + seedKey.charCodeAt(i)) >>> 0;
+    return pool[hash % pool.length];
+  }
+
+  function computeRecapRows() {
+    const yKey = yesterdayKey();
+    const children = Object.values((familyData && familyData.children) || {});
+    const rows = [];
+    children.forEach((c) => {
+      if (!c.tasks || !c.tasks.length) return;
+      const dayLog = allChildLogs[c.id] && allChildLogs[c.id].logs && allChildLogs[c.id].logs[yKey];
+      if (!dayLog) return; // nothing logged for this kid yesterday — leave them out rather than showing a false "0/5"
+      const done = dayLog.tasksEverDone ? Object.keys(dayLog.tasksEverDone).length : 0;
+      const total = c.tasks.length;
+      rows.push({ id: c.id, name: c.name, emoji: c.emoji || '🧑', done, total, perfect: total > 0 && done === total });
+    });
+    return rows;
+  }
+
+  function renderDailyRecap() {
+    const wrap = document.getElementById('daily-recap-card');
+    if (!wrap || !familyData || !familyRef) return;
+    if (familyData.recapSeenDate === todayKey()) { wrap.classList.add('hidden'); wrap.innerHTML = ''; return; }
+    const rows = computeRecapRows();
+    if (!rows.length) { wrap.classList.add('hidden'); wrap.innerHTML = ''; return; } // e.g. a brand-new family with no history yet
+
+    const allPerfect = rows.every(r => r.perfect);
+    const avgRate = rows.reduce((sum, r) => sum + (r.total ? r.done / r.total : 0), 0) / rows.length;
+    const bucket = allPerfect ? 'perfect' : (avgRate >= 0.5 ? 'good' : 'rough');
+    const tip = pickRecapTip(bucket, `${familyRef.id}-${todayKey()}`);
+
+    wrap.classList.remove('hidden');
+    wrap.classList.toggle('all-perfect', allPerfect);
+    wrap.innerHTML = `
+      <div class="recap-title">${allPerfect ? '🌟 Yesterday was a perfect day!' : '📋 Yesterday, in a nutshell'}</div>
+      <div class="recap-rows">
+        ${rows.map(r => `
+          <div class="recap-row">
+            <span class="recap-emoji">${r.emoji}</span>
+            <span class="recap-name">${escapeHtml(r.name)}</span>
+            <span class="recap-frac ${r.perfect ? 'perfect' : ''}">${r.perfect ? 'All missions done! 🎉' : `${r.done}/${r.total} missions`}</span>
+          </div>`).join('')}
+      </div>
+      <p class="recap-tip">💡 ${tip}</p>
+      <button type="button" class="ghost-btn recap-dismiss-btn" id="recap-dismiss-btn">Got it, thanks</button>
+    `;
+    document.getElementById('recap-dismiss-btn').addEventListener('click', dismissDailyRecap);
+  }
+
+  async function dismissDailyRecap() {
+    familyData.recapSeenDate = todayKey();
+    const wrap = document.getElementById('daily-recap-card');
+    if (wrap) { wrap.classList.add('hidden'); wrap.innerHTML = ''; }
+    await saveFamily();
   }
 
   // ---------------------------------------------------------------------
@@ -1299,7 +1608,10 @@
       const pill = document.createElement('div');
       pill.className = 'child-pill' + (c.id === activeChildId ? ' active' : '');
       pill.innerHTML = `<span>${c.emoji}</span><span>${escapeHtml(c.name)}</span>`;
-      pill.addEventListener('click', () => setActiveChild(c.id, { persist: true }));
+      pill.addEventListener('click', () => {
+        if (sessionRole === 'parent') expandedChildId = c.id;
+        setActiveChild(c.id, { persist: true });
+      });
       wrap.appendChild(pill);
     });
     const addPill = document.createElement('div');
@@ -1377,6 +1689,7 @@
     else log.done[id] = true;
     await saveFamily();
     renderParentMissionsList();
+    renderParentMissionsInline();
   }
 
   // Today's checklist = the recurring list every day, PLUS anything the
@@ -1447,6 +1760,48 @@
     list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
       cb.addEventListener('change', () => toggleParentMission(cb.dataset.id));
     });
+  }
+
+  // The always-on-screen version of the checklist above — same data, same
+  // toggle function, just rendered directly into the main screen instead
+  // of behind a modal, so it's the first thing a parent sees rather than
+  // one more tap away in the Parent Menu.
+  function renderParentMissionsInline() {
+    const wrap = document.getElementById('parent-missions-inline');
+    if (!wrap || !familyData) return;
+    ensureParentMissionsSeeded();
+    const items = todaysParentItems().sort((a, b) => (a.time || 'zz').localeCompare(b.time || 'zz'));
+    const log = todaysParentLog();
+    const doneCount = items.filter(m => log.done[m.id]).length;
+    wrap.classList.remove('hidden');
+    wrap.innerHTML = `
+      <div class="pm-inline-header">
+        <span class="pm-inline-title">🧭 My Missions</span>
+        <span class="pm-inline-count">${doneCount}/${items.length} today</span>
+      </div>
+      <div class="pm-inline-list">
+        ${items.length === 0
+          ? `<p style="color:#94a3b8; font-size:13px; margin:4px 0;">Nothing on your list yet.</p>`
+          : items.map(m => `
+            <label class="parent-mission-row compact ${log.done[m.id] ? 'done' : ''}">
+              <input type="checkbox" data-id="${m.id}" ${log.done[m.id] ? 'checked' : ''}>
+              <span class="parent-mission-main">
+                <span class="parent-mission-title">${escapeHtml(m.title)}${m.scheduled ? ' <span class="cal-tag">📅</span>' : ''}</span>
+              </span>
+              ${m.time ? `<span class="parent-mission-time">${formatTime(m.time)}</span>` : ''}
+            </label>`).join('')
+        }
+      </div>
+      <div class="pm-inline-actions">
+        <button type="button" class="ghost-btn" id="pm-inline-edit-btn" style="padding:8px 12px; font-size:12.5px;">✏️ Edit</button>
+        <button type="button" class="ghost-btn" id="pm-inline-cal-btn" style="padding:8px 12px; font-size:12.5px;">📅 Calendar${isPremium() ? '' : ' 🔒'}</button>
+      </div>
+    `;
+    wrap.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => toggleParentMission(cb.dataset.id));
+    });
+    document.getElementById('pm-inline-edit-btn').addEventListener('click', () => openParentMissionsEditor());
+    document.getElementById('pm-inline-cal-btn').addEventListener('click', () => openParentCalendarGate());
   }
 
   function openParentMissionsEditor() {
@@ -1662,9 +2017,10 @@
 
     tasks.forEach((task) => {
       const done = !!log.tasks[task.id];
+      const needsHelp = !done && !!(log.helpRequested && log.helpRequested[task.id]);
       if (done) completed++;
       const card = document.createElement('div');
-      card.className = 'task-card' + (done ? ' completed' : '');
+      card.className = 'task-card' + (done ? ' completed' : '') + (needsHelp ? ' needs-help' : '');
       card.dataset.taskId = task.id;
       card.innerHTML = `
         <div class="time-tag">${formatTime(task.time)}</div>
@@ -1672,10 +2028,16 @@
         <div class="task-info">
           <div class="task-title">${escapeHtml(task.title)}</div>
           <div class="task-desc">${escapeHtml(task.desc || '')}</div>
+          ${needsHelp ? `<div class="help-flag">🤚 ${sessionRole === 'parent' ? 'Asked for help — tap to clear' : 'Waiting for a grown-up'}</div>` : ''}
         </div>
+        ${!done ? `<button type="button" class="help-btn ${needsHelp ? 'active' : ''}" data-help-task="${task.id}" title="${needsHelp ? 'Clear help request' : 'Ask for help'}">🤚</button>` : ''}
         <div class="check-circle">✓</div>
       `;
       card.addEventListener('click', (evt) => toggleTask(task.id, evt));
+      const helpBtn = card.querySelector('.help-btn');
+      if (helpBtn) {
+        helpBtn.addEventListener('click', (evt) => { evt.stopPropagation(); toggleHelpRequest(task.id); });
+      }
       list.appendChild(card);
     });
 
@@ -1785,6 +2147,8 @@
     if (!log.tasksEverDone) log.tasksEverDone = {};
     const wasDone = !!log.tasks[taskId];
     log.tasks[taskId] = !wasDone;
+    // Finishing a mission answers the "I need help" flag on its own.
+    if (!wasDone && log.helpRequested && log.helpRequested[taskId]) delete log.helpRequested[taskId];
     if (navigator.vibrate) navigator.vibrate(40);
 
     if (!wasDone) {
@@ -1827,6 +2191,34 @@
     await saveChildLogs();
   }
 
+  // A gentle, non-blocking signal — not a chat, not an alert. A kid taps
+  // 🤚 on a mission that's giving them trouble; it writes to childLogsData
+  // (kid-writable, same as tasks/feats) so it's allowed under the real
+  // security rules, and shows up live for the parent via the same
+  // onSnapshot sync everything else already uses — no extra plumbing.
+  // helpRequested is the live flag (cleared once acknowledged or the task
+  // gets done); helpRequestedEver is the permanent ledger the Progress
+  // Report reads, mirroring the tasksEverDone/featsEverDone pattern above.
+  async function toggleHelpRequest(taskId) {
+    const key = todayKey();
+    if (!childLogsData) childLogsData = { logs: {} };
+    if (!childLogsData.logs) childLogsData.logs = {};
+    if (!childLogsData.logs[key]) childLogsData.logs[key] = { tasks: {}, feats: {} };
+    const log = childLogsData.logs[key];
+    if (!log.helpRequested) log.helpRequested = {};
+    const wasFlagged = !!log.helpRequested[taskId];
+    if (wasFlagged) {
+      delete log.helpRequested[taskId];
+    } else {
+      log.helpRequested[taskId] = true;
+      if (!log.helpRequestedEver) log.helpRequestedEver = {};
+      log.helpRequestedEver[taskId] = true;
+      if (navigator.vibrate) navigator.vibrate(30);
+    }
+    renderTasks();
+    await saveChildLogs();
+  }
+
   // Feats are the "bonus power" ones, so they get one extra step before
   // they pay out: tapping a feat doesn't award points on the spot — it
   // just flags it as pending until a parent confirms it actually happened
@@ -1863,7 +2255,7 @@
   }
 
   document.getElementById('reset-btn').addEventListener('click', async () => {
-    if (!confirm('Reset today\'s missions and feats?')) return;
+    if (!confirm('Clear today\'s missions and feats and start today over? (Tomorrow will start fresh on its own either way — this is only for today.)')) return;
     if (!childLogsData) childLogsData = { logs: {} };
     childLogsData.logs[todayKey()] = { tasks: {}, feats: {} };
     render();
@@ -2140,12 +2532,15 @@
 
     const perTask = child.tasks.map((task) => {
       let doneCount = 0;
+      let helpCount = 0;
       loggedDays.forEach((r) => {
         const log = logs[r.date];
         if (log && log.tasksEverDone && log.tasksEverDone[task.id]) doneCount++;
+        if (log && log.helpRequestedEver && log.helpRequestedEver[task.id]) helpCount++;
       });
-      return { title: task.title, emoji: task.emoji, done: doneCount, total: loggedDays.length };
+      return { title: task.title, emoji: task.emoji, done: doneCount, total: loggedDays.length, helpCount };
     });
+    const totalHelpRequests = perTask.reduce((sum, t) => sum + t.helpCount, 0);
 
     const checkinDays = dailyRows.filter(r => r.checkin);
     const avg = (field) => {
@@ -2154,7 +2549,7 @@
     };
     const wellbeing = { avgMood: avg('mood'), avgFocus: avg('focus'), avgEnergy: avg('energy'), checkinDaysCount: checkinDays.length };
 
-    return { dailyRows, loggedDaysCount: loggedDays.length, overallRate, totalFeats, streak, perTask, wellbeing };
+    return { dailyRows, loggedDaysCount: loggedDays.length, overallRate, totalFeats, streak, perTask, wellbeing, totalHelpRequests };
   }
 
   // ---------------------------------------------------------------------
@@ -2253,11 +2648,12 @@
       <div class="report-stat"><div class="num">${data.totalFeats}</div><div class="lbl">Total Feats Earned</div></div>
       <div class="report-stat"><div class="num">${moodStr}</div><div class="lbl">Avg. Self-Reported Mood</div></div>
       <div class="report-stat"><div class="num">${focusStr}</div><div class="lbl">Avg. Self-Reported Focus</div></div>
+      ${data.totalHelpRequests > 0 ? `<div class="report-stat" style="grid-column: 1 / -1; border-left-color:#eab308;"><div class="num">🤚 ${data.totalHelpRequests}</div><div class="lbl">Times ${escapeHtml(child.name)} Asked For Help</div></div>` : ''}
     `;
 
     const taskRows = data.perTask.map((t) => {
       const pct = t.total ? Math.round((t.done / t.total) * 100) : 0;
-      return `<tr><td>${t.emoji || ''} ${escapeHtml(t.title)}</td><td><div class="report-bar-bg"><div class="report-bar-fill" style="width:${pct}%"></div></div>${t.done}/${t.total} (${pct}%)</td></tr>`;
+      return `<tr><td>${t.emoji || ''} ${escapeHtml(t.title)}</td><td><div class="report-bar-bg"><div class="report-bar-fill" style="width:${pct}%"></div></div>${t.done}/${t.total} (${pct}%)</td></tr>${t.helpCount > 0 ? `<tr><td colspan="2" style="padding-top:0; padding-bottom:10px;"><span style="font-size:11px; font-weight:800; color:#a16207; background:#fef9c3; padding:2px 8px; border-radius:999px;">🤚 asked for help ${t.helpCount}×</span></td></tr>` : ''}`;
     }).join('');
     document.getElementById('report-task-table').innerHTML = `<tr><th>Mission</th><th>Completion</th></tr>${taskRows || '<tr><td colspan="2">No data yet.</td></tr>'}`;
 
@@ -2522,6 +2918,7 @@
       familyData.children[child.id] = child;
       familyData.activeChildId = child.id;
       await saveFamily();
+      expandedChildId = child.id;
       setActiveChild(child.id, { persist: false });
       closeModal();
     });
