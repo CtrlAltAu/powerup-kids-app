@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "powerup-kids-app"
-  }
+  },
+  "targets": {
+    "powerup-kids-app": {
+      "hosting": {
+        "app": [
+          "powerup-kids-app"
+        ],
+        "landing": [
+          "powerup-kids-landing"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
