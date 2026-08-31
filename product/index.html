@@ -336,6 +336,50 @@
   .menu-group.mg-reports .menu-group-label { color: #c7d2fe; }
   .menu-group.mg-account { background: #1e293b; border: 1px solid #334155; }
   .menu-group.mg-account .menu-group-label { color: #94a3b8; }
+  /* Parent Missions — deliberately its own color (teal, matching the
+     marketing site's accent) so it reads as a distinct, noticeable
+     entry point rather than one more line in the settings list. */
+  .menu-group.mg-parent { background: #134e4a; border: 1px solid #14b8a6; }
+  .menu-group.mg-parent .menu-group-label { color: #99f6e4; }
+  .parent-missions-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #0f766e; }
+  .parent-missions-btn:active { background: #115e59; }
+  .mission-count-badge { font-size: 11px; font-weight: 800; color: #134e4a; background: #5eead4; padding: 3px 8px; border-radius: 999px; }
+  .lock-badge { font-size: 13px; opacity: 0.85; }
+
+  /* ---------- Parent Missions checklist (plain — no points/celebrations) --- */
+  .parent-mission-row {
+    display: flex; align-items: center; gap: 12px; background: #1e293b; border: 2px solid #334155;
+    border-radius: 12px; padding: 12px; cursor: pointer;
+  }
+  .parent-mission-row.done { background: #134e4a; border-color: #14b8a6; }
+  .parent-mission-row input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: #14b8a6; }
+  .parent-mission-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .parent-mission-title { font-size: 14px; font-weight: 700; color: #f8fafc; }
+  .parent-mission-row.done .parent-mission-title { color: #99f6e4; text-decoration: line-through; text-decoration-color: #5eead4; }
+  .parent-mission-note { font-size: 11.5px; color: #94a3b8; }
+  .parent-mission-time { font-size: 11px; font-weight: 800; color: #5eead4; background: #0f172a; padding: 4px 8px; border-radius: 6px; white-space: nowrap; flex-shrink: 0; }
+  .cal-tag { font-size: 10px; font-weight: 800; color: #134e4a; background: #5eead4; padding: 2px 6px; border-radius: 999px; margin-left: 4px; white-space: nowrap; }
+  .cal-teaser-btn { background: #0f766e; color: #f0fdfa; }
+  .cal-teaser-btn:active { background: #115e59; }
+
+  /* ---------- Missions Calendar (Premium) ---------- */
+  .cal-nav { display: flex; align-items: center; justify-content: space-between; }
+  .cal-nav-label { font-size: 15px; font-weight: 800; color: #f8fafc; }
+  .cal-nav-btn { width: auto; padding: 8px 16px; font-size: 16px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-grid.cal-weekdays { margin-top: 4px; margin-bottom: -2px; }
+  .cal-weekday { text-align: center; font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; padding: 4px 0; }
+  .cal-cell {
+    position: relative; aspect-ratio: 1; border-radius: 8px; border: 2px solid #334155; background: #1e293b;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; color: #e2e8f0; font-size: 13px; font-weight: 700;
+  }
+  .cal-cell.empty { border: none; background: transparent; cursor: default; }
+  .cal-cell.today { border-color: #f59e0b; color: #fbbf24; }
+  .cal-cell.has-items { border-color: #14b8a6; background: #134e4a; }
+  .cal-dot {
+    position: absolute; bottom: 3px; right: 3px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 999px;
+    background: #5eead4; color: #134e4a; font-size: 9px; font-weight: 900; display: flex; align-items: center; justify-content: center;
+  }
   .quick-actions { display: flex; flex-direction: column; gap: 8px; }
   .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
   .emoji-opt {
@@ -694,6 +738,22 @@
     ];
   }
 
+  // ---------------------------------------------------------------------
+  // Parent Missions — a parent's own daily checklist, family-level (not
+  // per-child), living alongside the kid's missions instead of in a
+  // separate app. Deliberately plain: no points, feats, celebrations, or
+  // sound — an adult reminder list, not a gamified one. Editable the same
+  // way the starter routine is (see openParentMissionsEditor).
+  // ---------------------------------------------------------------------
+  function defaultParentMissions() {
+    return [
+      { id: makeId(), time: '', title: 'Meds / vitamins', note: 'Whatever you take daily' },
+      { id: makeId(), time: '', title: 'Load of laundry', note: '' },
+      { id: makeId(), time: '', title: "Pack tomorrow's bags", note: '' },
+      { id: makeId(), time: '', title: 'One thing just for you', note: '5 minutes, no kids attached' }
+    ];
+  }
+
   // A fun, anonymous nickname suggestion for the worldwide leaderboard —
   // never a real name, so a kid's identity is never exposed publicly.
   const NICKNAME_ADJECTIVES = ['Swift', 'Mighty', 'Cosmic', 'Turbo', 'Brave', 'Clever', 'Sunny', 'Rapid', 'Epic', 'Wild', 'Golden', 'Sneaky'];
@@ -918,7 +978,10 @@
         email: user.email,
         tier: 'free',
         activeChildId: seedChild.id,
-        children: { [seedChild.id]: seedChild }
+        children: { [seedChild.id]: seedChild },
+        parentMissions: defaultParentMissions(),
+        parentMissionLog: {},
+        parentCalendar: {}
       };
       await setDoc(familyRef, familyData);
       isNewFamily = true;
@@ -1283,6 +1346,309 @@
     if (!childLogsData.logs) childLogsData.logs = {};
     if (!childLogsData.logs[key]) childLogsData.logs[key] = { tasks: {}, feats: {} };
     return childLogsData.logs[key];
+  }
+
+  // Existing families (created before Parent Missions shipped) won't have
+  // these fields yet — seed them the first time anything touches parent
+  // missions, same defensive pattern as childLogsData elsewhere.
+  function ensureParentMissionsSeeded() {
+    if (!familyData.parentMissions) familyData.parentMissions = defaultParentMissions();
+    if (!familyData.parentMissionLog) familyData.parentMissionLog = {};
+    if (!familyData.parentCalendar) familyData.parentCalendar = {};
+  }
+
+  function todaysParentLog() {
+    return (familyData.parentMissionLog && familyData.parentMissionLog[todayKey()]) || { done: {} };
+  }
+
+  // Same ensure-vs-read split as ensureTodaysLog()/todaysLog() for the kid
+  // side — a caller about to WRITE a checked-off state needs the real,
+  // attached object, not a disposable stand-in.
+  function ensureTodaysParentLog() {
+    const key = todayKey();
+    if (!familyData.parentMissionLog) familyData.parentMissionLog = {};
+    if (!familyData.parentMissionLog[key]) familyData.parentMissionLog[key] = { done: {} };
+    return familyData.parentMissionLog[key];
+  }
+
+  async function toggleParentMission(id) {
+    const log = ensureTodaysParentLog();
+    if (log.done[id]) delete log.done[id];
+    else log.done[id] = true;
+    await saveFamily();
+    renderParentMissionsList();
+  }
+
+  // Today's checklist = the recurring list every day, PLUS anything the
+  // parent pre-filled onto today's date via the Missions Calendar (Premium).
+  // A calendar item only ever appears here once its date has actually
+  // arrived — see openParentCalendarDayModal for where it's scheduled.
+  function todaysParentItems() {
+    const scheduled = (familyData.parentCalendar && familyData.parentCalendar[todayKey()]) || [];
+    return [...(familyData.parentMissions || []), ...scheduled.map(m => ({ ...m, scheduled: true }))];
+  }
+
+  function parentMissionsDoneCount() {
+    if (!familyData) return { done: 0, total: 0 };
+    const items = todaysParentItems();
+    const log = todaysParentLog();
+    const total = items.length;
+    const done = items.filter(m => log.done[m.id]).length;
+    return { done, total };
+  }
+
+  // Free for everyone — see openParentCalendarGate() below for the
+  // Premium-gated companion feature (pre-filling future days).
+  function openParentMissionsGate() {
+    ensureParentMissionsSeeded();
+    openParentMissionsModal();
+  }
+
+  function openParentMissionsModal() {
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet">
+          <h2>🧭 My Missions</h2>
+          <p>Your own list for today — meds, chores, whatever else needs tracking. Just you; the kids can't see or touch this.</p>
+          <div class="builder-list" id="parent-missions-list"></div>
+          <button class="ghost-btn cal-teaser-btn" id="open-parent-calendar-btn">📅 Missions Calendar${isPremium() ? '' : ' — Premium'}</button>
+          <button class="link-btn" id="edit-parent-missions-btn">✏️ Edit List</button>
+          <button class="link-btn" id="close-parent-missions-btn">Close</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-parent-missions-btn').addEventListener('click', closeModal);
+    document.getElementById('edit-parent-missions-btn').addEventListener('click', () => { openParentMissionsEditor(); });
+    document.getElementById('open-parent-calendar-btn').addEventListener('click', () => { openParentCalendarGate(); });
+    renderParentMissionsList();
+  }
+
+  function renderParentMissionsList() {
+    const list = document.getElementById('parent-missions-list');
+    if (!list) return;
+    const items = todaysParentItems().sort((a, b) => (a.time || 'zz').localeCompare(b.time || 'zz'));
+    const log = todaysParentLog();
+    if (items.length === 0) {
+      list.innerHTML = `<p style="color:#94a3b8; font-size:13.5px;">Nothing on your list yet — tap "Edit List" to add something.</p>`;
+      return;
+    }
+    list.innerHTML = items.map(m => `
+      <label class="parent-mission-row ${log.done[m.id] ? 'done' : ''}">
+        <input type="checkbox" data-id="${m.id}" ${log.done[m.id] ? 'checked' : ''}>
+        <span class="parent-mission-main">
+          <span class="parent-mission-title">${escapeHtml(m.title)}${m.scheduled ? ' <span class="cal-tag">📅 pre-filled</span>' : ''}</span>
+          ${m.note ? `<span class="parent-mission-note">${escapeHtml(m.note)}</span>` : ''}
+        </span>
+        ${m.time ? `<span class="parent-mission-time">${formatTime(m.time)}</span>` : ''}
+      </label>
+    `).join('');
+    list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => toggleParentMission(cb.dataset.id));
+    });
+  }
+
+  function openParentMissionsEditor() {
+    let draft = (familyData.parentMissions || []).map(m => ({ ...m }));
+    const root = document.getElementById('modal-root');
+    function render() {
+      root.innerHTML = `
+        <div class="modal-overlay" id="modal-overlay">
+          <div class="modal-sheet">
+            <h2>✏️ Edit My Missions</h2>
+            <p>What do you want on your own list? A time is optional — leave it blank for anytime.</p>
+            <div class="builder-list" id="parent-missions-edit-list"></div>
+            <button class="add-row-btn" id="add-parent-mission-btn">+ Add to My List</button>
+            <button class="primary-btn" id="save-parent-missions-btn">Save</button>
+            <button class="link-btn" id="cancel-parent-missions-btn">Cancel</button>
+          </div>
+        </div>
+      `;
+      const list = document.getElementById('parent-missions-edit-list');
+      draft.forEach((m, idx) => {
+        const row = document.createElement('div');
+        row.className = 'builder-row';
+        row.innerHTML = `
+          <div class="builder-row-main">
+            <div class="builder-row-fields">
+              <input class="field-input" data-field="title" placeholder="e.g. Meds / vitamins" value="${escapeAttr(m.title)}">
+              <input class="field-input" data-field="time" type="time" value="${escapeAttr(m.time || '')}">
+            </div>
+            <div class="builder-row-fields full">
+              <input class="field-input" data-field="note" placeholder="Short note (optional)" value="${escapeAttr(m.note || '')}">
+            </div>
+          </div>
+          <button class="row-remove" data-idx="${idx}">✕</button>
+        `;
+        row.querySelectorAll('input').forEach((input) => {
+          input.addEventListener('input', () => { draft[idx][input.dataset.field] = input.value; });
+        });
+        row.querySelector('.row-remove').addEventListener('click', () => { draft.splice(idx, 1); render(); });
+        list.appendChild(row);
+      });
+      document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+      document.getElementById('cancel-parent-missions-btn').addEventListener('click', () => openParentMissionsModal());
+      document.getElementById('add-parent-mission-btn').addEventListener('click', () => {
+        draft.push({ id: makeId(), time: '', title: '', note: '' });
+        render();
+      });
+      document.getElementById('save-parent-missions-btn').addEventListener('click', async () => {
+        familyData.parentMissions = draft
+          .filter(m => m.title.trim())
+          .map(m => ({ id: m.id, time: m.time || '', title: m.title.trim(), note: (m.note || '').trim() }));
+        await saveFamily();
+        openParentMissionsModal();
+      });
+    }
+    render();
+  }
+
+  // ---------------------------------------------------------------------
+  // Missions Calendar — Premium. Pre-fill a mission onto a future date;
+  // once that date's checklist is "today", it merges straight into My
+  // Missions automatically (see todaysParentItems() above). Lives in
+  // familyData.parentCalendar = { 'YYYY-MM-DD': [{id,title,time,note}] },
+  // parent-write-only same as parentMissions — nothing new needed in the
+  // security rules, it's just more fields on the same family doc.
+  // ---------------------------------------------------------------------
+  let calViewYear = null;
+  let calViewMonth = null; // 0-11
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function calDateKey(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
+
+  function parentCalendarUpcomingCount() {
+    if (!familyData || !familyData.parentCalendar) return 0;
+    const todayStr = todayKey();
+    return Object.keys(familyData.parentCalendar)
+      .filter(k => k >= todayStr && familyData.parentCalendar[k].length)
+      .reduce((sum, k) => sum + familyData.parentCalendar[k].length, 0);
+  }
+
+  function openParentCalendarGate() {
+    if (!isPremium()) { openUpgradeModal('The Missions Calendar — pre-filling missions onto future days — is a Premium feature.'); return; }
+    const today = new Date();
+    if (calViewYear === null) { calViewYear = today.getFullYear(); calViewMonth = today.getMonth(); }
+    openParentCalendarModal();
+  }
+
+  const CAL_MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const CAL_WEEKDAY_LABELS = ['S','M','T','W','T','F','S'];
+
+  function openParentCalendarModal() {
+    const root = document.getElementById('modal-root');
+    const first = new Date(calViewYear, calViewMonth, 1);
+    const startWeekday = first.getDay();
+    const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+    const todayStr = todayKey();
+
+    let cells = '';
+    for (let i = 0; i < startWeekday; i++) cells += `<div class="cal-cell empty"></div>`;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dKey = calDateKey(calViewYear, calViewMonth, d);
+      const count = (familyData.parentCalendar && familyData.parentCalendar[dKey] || []).length;
+      const isToday = dKey === todayStr;
+      cells += `
+        <button type="button" class="cal-cell ${isToday ? 'today' : ''} ${count ? 'has-items' : ''}" data-date="${dKey}">
+          <span class="cal-daynum">${d}</span>
+          ${count ? `<span class="cal-dot" title="${count} pre-filled">${count}</span>` : ''}
+        </button>`;
+    }
+
+    root.innerHTML = `
+      <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-sheet">
+          <h2>📅 Missions Calendar</h2>
+          <p>Pre-fill a mission onto any day — dentist reminders, a chore you know is coming, whatever needs to be there before you think to add it. It'll already be sitting in My Missions when the day arrives.</p>
+          <div class="cal-nav">
+            <button type="button" class="ghost-btn cal-nav-btn" id="cal-prev-btn">‹</button>
+            <div class="cal-nav-label">${CAL_MONTH_NAMES[calViewMonth]} ${calViewYear}</div>
+            <button type="button" class="ghost-btn cal-nav-btn" id="cal-next-btn">›</button>
+          </div>
+          <div class="cal-grid cal-weekdays">${CAL_WEEKDAY_LABELS.map(w => `<div class="cal-weekday">${w}</div>`).join('')}</div>
+          <div class="cal-grid">${cells}</div>
+          <button class="link-btn" id="close-parent-calendar-btn">Back to My Missions</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+    document.getElementById('close-parent-calendar-btn').addEventListener('click', () => openParentMissionsModal());
+    document.getElementById('cal-prev-btn').addEventListener('click', () => {
+      calViewMonth--; if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+      openParentCalendarModal();
+    });
+    document.getElementById('cal-next-btn').addEventListener('click', () => {
+      calViewMonth++; if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+      openParentCalendarModal();
+    });
+    root.querySelectorAll('.cal-cell[data-date]').forEach(cell => {
+      cell.addEventListener('click', () => openParentCalendarDayModal(cell.dataset.date));
+    });
+  }
+
+  function formatCalendarDayHeading(dateKey) {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+
+  function openParentCalendarDayModal(dateKey) {
+    let draft = ((familyData.parentCalendar && familyData.parentCalendar[dateKey]) || []).map(m => ({ ...m }));
+    const root = document.getElementById('modal-root');
+    function render() {
+      root.innerHTML = `
+        <div class="modal-overlay" id="modal-overlay">
+          <div class="modal-sheet">
+            <h2>📅 ${formatCalendarDayHeading(dateKey)}</h2>
+            <p>${dateKey === todayKey() ? "This is today — anything you add here shows up in My Missions immediately." : "Pre-fill missions for this day — they'll be waiting in My Missions when it arrives."}</p>
+            <div class="builder-list" id="cal-day-list"></div>
+            <button class="add-row-btn" id="add-cal-item-btn">+ Add a Mission for This Day</button>
+            <button class="primary-btn" id="save-cal-day-btn">Save</button>
+            <button class="link-btn" id="back-to-cal-btn">Back to Calendar</button>
+          </div>
+        </div>
+      `;
+      const list = document.getElementById('cal-day-list');
+      draft.forEach((m, idx) => {
+        const row = document.createElement('div');
+        row.className = 'builder-row';
+        row.innerHTML = `
+          <div class="builder-row-main">
+            <div class="builder-row-fields">
+              <input class="field-input" data-field="title" placeholder="e.g. Dentist reminder" value="${escapeAttr(m.title)}">
+              <input class="field-input" data-field="time" type="time" value="${escapeAttr(m.time || '')}">
+            </div>
+            <div class="builder-row-fields full">
+              <input class="field-input" data-field="note" placeholder="Short note (optional)" value="${escapeAttr(m.note || '')}">
+            </div>
+          </div>
+          <button class="row-remove" data-idx="${idx}">✕</button>
+        `;
+        row.querySelectorAll('input').forEach((input) => {
+          input.addEventListener('input', () => { draft[idx][input.dataset.field] = input.value; });
+        });
+        row.querySelector('.row-remove').addEventListener('click', () => { draft.splice(idx, 1); render(); });
+        list.appendChild(row);
+      });
+      document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+      document.getElementById('back-to-cal-btn').addEventListener('click', () => openParentCalendarModal());
+      document.getElementById('add-cal-item-btn').addEventListener('click', () => {
+        draft.push({ id: makeId(), time: '', title: '', note: '' });
+        render();
+      });
+      document.getElementById('save-cal-day-btn').addEventListener('click', async () => {
+        const cleaned = draft
+          .filter(m => m.title.trim())
+          .map(m => ({ id: m.id, time: m.time || '', title: m.title.trim(), note: (m.note || '').trim() }));
+        if (!familyData.parentCalendar) familyData.parentCalendar = {};
+        if (cleaned.length) familyData.parentCalendar[dateKey] = cleaned;
+        else delete familyData.parentCalendar[dateKey];
+        await saveFamily();
+        openParentCalendarModal();
+      });
+    }
+    render();
   }
 
   function renderTasks() {
@@ -3603,11 +3969,29 @@
 
   function openParentMenu() {
     const root = document.getElementById('modal-root');
+    const { done, total } = parentMissionsDoneCount();
+    const missionsBadge = total > 0 ? `<span class="mission-count-badge">${done}/${total} today</span>` : '';
+    const upcomingCount = parentCalendarUpcomingCount();
+    const calendarBadge = isPremium()
+      ? (upcomingCount > 0 ? `<span class="mission-count-badge">${upcomingCount} upcoming</span>` : '')
+      : '<span class="lock-badge">🔒</span>';
     root.innerHTML = `
       <div class="modal-overlay" id="modal-overlay">
         <div class="modal-sheet">
           <h2>Parent Menu</h2>
           <p>Signed in as ${escapeHtml(currentUser ? currentUser.email : '')}</p>
+
+          <div class="menu-group mg-parent">
+            <div class="menu-group-label">For You</div>
+            <button class="ghost-btn parent-missions-btn" id="menu-parent-missions-btn">
+              <span>🧭 My Missions</span>
+              ${missionsBadge}
+            </button>
+            <button class="ghost-btn parent-missions-btn" id="menu-parent-calendar-btn">
+              <span>📅 Missions Calendar</span>
+              ${calendarBadge}
+            </button>
+          </div>
 
           <div class="menu-group mg-profile">
             <div class="menu-group-label">Koda's Profile</div>
@@ -3638,6 +4022,8 @@
     document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
     document.getElementById('close-settings-btn').addEventListener('click', closeModal);
 
+    document.getElementById('menu-parent-missions-btn').addEventListener('click', () => { closeModal(); openParentMissionsGate(); });
+    document.getElementById('menu-parent-calendar-btn').addEventListener('click', () => { closeModal(); openParentCalendarGate(); });
     document.getElementById('menu-edit-kid-btn').addEventListener('click', () => { closeModal(); openEditKidModal(); });
     document.getElementById('menu-game-settings-btn').addEventListener('click', () => { closeModal(); openGameRulesGate(); });
     document.getElementById('menu-level-rewards-btn').addEventListener('click', () => { closeModal(); openLevelRewardsGate(); });
